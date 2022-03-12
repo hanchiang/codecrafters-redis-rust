@@ -2,7 +2,7 @@
 use std::env;
 #[allow(unused_imports)]
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 #[allow(unused_imports)]
 use std::net::TcpListener;
 
@@ -12,13 +12,27 @@ fn main() {
 
     // Uncomment this block to pass the first stage
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
-    match listener.accept() {
-        Ok((mut socket, addr)) => {
-            println!("accepted new client: {:?}", addr);
-            let res = format_response("PONG");
-            socket.write(res.as_bytes());
-        },
-        Err(e) => println!("couldn't accept client: {:?}", e),
+
+    for stream in listener.incoming() {
+        match stream {
+            Ok(mut s) => {
+                let mut buffer: [u8; 1024] = [0; 1024];
+
+                loop {
+                    match s.read(&mut buffer) {
+                        Ok(_size) => {
+                            let res = format_response("PONG");
+                            s.write(res.as_bytes());
+                        },
+                        Err(e) => {
+                            println!("Error reading from stream: {:?}", e);
+                            break;
+                        }
+                    }
+                }
+            },
+            Err(e) => println!("Couldn't accept client: {:?}", e)
+        }
     }
 }
 
