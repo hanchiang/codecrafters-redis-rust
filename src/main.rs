@@ -4,6 +4,7 @@ extern crate core;
 use std::env;
 #[allow(unused_imports)]
 use std::fs;
+use std::io::{Read, Write};
 #[allow(unused_imports)]
 use std::net::{TcpListener, TcpStream};
 use std::thread;
@@ -18,12 +19,12 @@ fn main() {
     // Uncomment this block to pass the first stage
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
-    for stream in listener.incoming() {
-        handle_connection(stream.unwrap());
+    for wrapped_stream in listener.incoming() {
+        handle_connection(wrapped_stream.unwrap());
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
+fn handle_connection<T: Read + Write + Send + 'static>(mut stream: T) {
     thread::spawn(move || {
         let mut client_input = ClientInput::new();
 
@@ -38,7 +39,7 @@ fn handle_connection(mut stream: TcpStream) {
             match parsed.unwrap() {
                 Some(p) => {
                     println!("Completed reading input: {:#?}", p);
-                    p.respond(&stream);
+                    p.respond(&mut stream);
                     client_input.reset();
                 }
                 None => {

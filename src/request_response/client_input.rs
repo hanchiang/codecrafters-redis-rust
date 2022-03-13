@@ -1,6 +1,5 @@
 use std::borrow::Borrow;
-use std::io::{Error, ErrorKind, Read};
-use std::net::TcpStream;
+use std::io::{Error, ErrorKind, Read, Write};
 
 use crate::request_response::{command::Command, parsed_command::ParsedCommand};
 
@@ -15,27 +14,32 @@ impl ClientInput {
         }
     }
 
-    pub fn read_input(&mut self, mut stream: &TcpStream) -> Result<Option<ParsedCommand>, Error> {
+    pub fn read_input<T: Read + Write>(
+        &mut self,
+        stream: &mut T,
+    ) -> Result<Option<ParsedCommand>, Error> {
         let mut buffer: [u8; 1024] = [0; 1024];
         match stream.read(&mut buffer) {
             Ok(size) => {
                 println!("Read {} bytes from input", size);
 
                 if size == 0 {
-                    return Err(Error::new(ErrorKind::ConnectionAborted, "Connection closed"));
+                    return Err(Error::new(
+                        ErrorKind::ConnectionAborted,
+                        "Connection closed",
+                    ));
                 }
 
                 let buffer_string = String::from_utf8_lossy(&buffer);
                 self.append_input(&buffer_string);
 
                 Ok(self.parse())
-            },
+            }
             Err(e) => {
                 println!("{}", e);
                 Err(e)
             }
         }
-
     }
 
     pub fn reset(&mut self) {
@@ -65,30 +69,26 @@ impl ClientInput {
             let num_args: u8 = num_args_ref.clone();
             println!("num args: {}", num_args);
 
+            // TODO: Parsing method can be improved
             let input: &str = self.input.borrow();
             let mut string_split: Vec<String> = input
                 .replace("\\r\\n", "\n")
                 .split("\n")
                 .filter(|s| !s.is_empty())
-                .map(|s| {
-                    String::from(s.trim())
-                })
+                .map(|s| String::from(s.trim()))
                 .collect();
 
             for s in string_split.iter() {
                 println!("string_split before: {}", s);
             }
 
+            // Discard the number of bytes for each bulk string, i.e. ${number of bytes}
             string_split = string_split
                 .iter()
                 .skip(2)
                 .step_by(2)
                 .map(String::from)
                 .collect();
-
-            for s in string_split.iter() {
-                println!("string_split after {}", s);
-            }
 
             if string_split.len() as u8 == num_args {
                 let command_str = string_split.remove(0);

@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::net::TcpStream;
+use std::io::Write;
 
 use crate::request_response::{command::Command, response_helper};
 
@@ -19,15 +19,6 @@ impl ParsedCommand {
             args: None,
         }
     }
-    pub fn num_args_in_input(&self) -> Option<u8> {
-        self.num_args_in_input
-    }
-    pub fn command(&self) -> &Option<Command> {
-        &self.command
-    }
-    pub fn args(&self) -> &Option<Vec<String>> {
-        &self.args
-    }
 
     pub fn set_num_args_in_input(&mut self, num_args_in_input: Option<u8>) {
         self.num_args_in_input = num_args_in_input;
@@ -39,11 +30,11 @@ impl ParsedCommand {
         self.args = args;
     }
 
-    pub fn respond(self, stream: &TcpStream) {
+    pub fn respond<T: Write>(self, stream: &mut T) {
         let ParsedCommand {
             args,
             command,
-            num_args_in_input,
+            num_args_in_input: _,
         } = self;
 
         match command {
@@ -60,7 +51,7 @@ impl ParsedCommand {
                     response_helper::send_bulk_string_response(stream, &result);
                 }
             },
-            None => response_helper::send_simple_string_response(&stream, "Unrecognised command")
+            None => response_helper::send_simple_string_response(stream, "Unrecognised command")
         };
     }
 }
