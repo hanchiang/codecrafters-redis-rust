@@ -57,7 +57,7 @@ impl ParsedCommand {
                         let str: &str = arg.borrow();
                         result.push_str(str);
                     }
-                    response_helper::send_bulk_string_response(stream, result);
+                    response_helper::send_bulk_string_response(stream, &result);
                 }
             },
             None => response_helper::send_simple_string_response(&stream, "Unrecognised command")

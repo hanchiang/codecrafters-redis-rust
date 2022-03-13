@@ -2,10 +2,10 @@ use std::io::Write;
 use std::net::TcpStream;
 
 pub fn send_null_bulk_string_response(stream: &TcpStream) {
-    send_bulk_string_response(stream, String::from("-1"));
+    send_bulk_string_response(stream, "-1");
 }
 
-pub fn send_bulk_string_response(mut stream: &TcpStream, data: String) {
+pub fn send_bulk_string_response(mut stream: &TcpStream, data: &str) {
     let response = format!("${}\r\n{}\r\n", data.len(), data);
     match stream.write(response.as_bytes()) {
         Ok(t) => {

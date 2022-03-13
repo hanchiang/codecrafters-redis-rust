@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::io::Read;
+use std::io::{Error, ErrorKind, Read};
 use std::net::TcpStream;
 
 use crate::request_response::{command::Command, parsed_command::ParsedCommand};
@@ -15,19 +15,24 @@ impl ClientInput {
         }
     }
 
-    pub fn read_input(&mut self, mut stream: &TcpStream) -> Option<ParsedCommand> {
+    pub fn read_input(&mut self, mut stream: &TcpStream) -> Result<Option<ParsedCommand>, Error> {
         let mut buffer: [u8; 1024] = [0; 1024];
         match stream.read(&mut buffer) {
             Ok(size) => {
                 println!("Read {} bytes from input", size);
+
+                if size == 0 {
+                    return Err(Error::new(ErrorKind::ConnectionAborted, "Connection closed"));
+                }
+
                 let buffer_string = String::from_utf8_lossy(&buffer);
                 self.append_input(&buffer_string);
 
-                self.parse()
+                Ok(self.parse())
             },
             Err(e) => {
-                println!("Unable to read input: {}", e);
-                None
+                println!("{}", e);
+                Err(e)
             }
         }
 
@@ -46,6 +51,12 @@ impl ClientInput {
     /// https://redis.io/topics/protocol#sending-commands-to-a-redis-server
     pub fn parse(&self) -> Option<ParsedCommand> {
         let input: &str = self.input.borrow();
+
+        if input.len() == 0 {
+            println!("No input.");
+            return None;
+        }
+
         if &input[0..1] != "*" {
             println!("Unrecognised command!");
             None

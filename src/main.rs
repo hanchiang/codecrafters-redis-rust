@@ -9,7 +9,7 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 mod request_response;
-use request_response::{client_input::ClientInput};
+use request_response::client_input::ClientInput;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -30,7 +30,12 @@ fn handle_connection(mut stream: TcpStream) {
         loop {
             let parsed = client_input.read_input(&mut stream);
 
-            match parsed {
+            if parsed.is_err() {
+                println!("Unable to read input: {}", parsed.unwrap_err());
+                break;
+            }
+
+            match parsed.unwrap() {
                 Some(p) => {
                     println!("Completed reading input: {:#?}", p);
                     p.respond(&stream);
@@ -43,4 +48,3 @@ fn handle_connection(mut stream: TcpStream) {
         }
     });
 }
-
