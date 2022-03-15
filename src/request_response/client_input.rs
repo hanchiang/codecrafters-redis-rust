@@ -85,11 +85,11 @@ impl ClientInput {
                 .replace("\\r\\n", "\n")
                 .split("\n")
                 .filter(|s| !s.is_empty())
-                .map(String::from)
+                .map(|s| String::from(s.trim()))
                 .collect();
 
             for s in string_split.iter() {
-                println!("string_split before: {}", s);
+                println!("string_split before: {}, len: {}", s, s.len());
             }
 
             // Discard the number of bytes for each bulk string, i.e. ${number of bytes}
@@ -101,12 +101,11 @@ impl ClientInput {
                 .collect();
 
             for s in string_split.iter() {
-                println!("string_split after: {}", s);
+                println!("string_split after: {}, len: {}", s, s.len());
             }
 
             if string_split.len() as u8 == num_args {
                 let command_str = string_split.remove(0);
-                println!("len of {} is {}", command_str, command_str.len());
                 let mut command: Option<Command> = None;
                 if command_str.to_lowercase() == "echo" {
                     command = Some(Command::ECHO);
