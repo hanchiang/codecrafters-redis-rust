@@ -1,13 +1,14 @@
-use std::borrow::Borrow;
-use std::io::Write;
-
-use crate::request_response::{command::Command, response_helper};
+use crate::request_response::{command::Command};
 
 #[derive(Debug)]
 pub struct ParsedCommand {
-    // number of arguments as given from input, not the length of the args field
+    // sample input: *2\r\n$4\r\necho\r\n$5\r\nhello\r\n
+    // Number of arguments as given from input. The digit after the first character '*'
     num_args_in_input: Option<u8>,
+    // i.e. "echo"
     command: Option<Command>,
+    // contains the non-byte count arguments after the command
+    // args will be ["hello"]
     args: Option<Vec<String>>,
 }
 
@@ -20,38 +21,26 @@ impl ParsedCommand {
         }
     }
 
+    pub fn num_args_in_input(&self) -> Option<u8> {
+        self.num_args_in_input
+    }
+
+    pub fn command(&self) -> &Option<Command> {
+        &self.command
+    }
+
+    pub fn args(&self) -> &Option<Vec<String>> {
+        &self.args
+    }
+
     pub fn set_num_args_in_input(&mut self, num_args_in_input: Option<u8>) {
         self.num_args_in_input = num_args_in_input;
     }
     pub fn set_command(&mut self, command: Option<Command>) {
         self.command = command;
     }
+
     pub fn set_args(&mut self, args: Option<Vec<String>>) {
         self.args = args;
-    }
-
-    pub fn respond<T: Write>(self, stream: &mut T) {
-        let ParsedCommand {
-            args,
-            command,
-            num_args_in_input: _,
-        } = self;
-
-        match command {
-            Some(command) => {
-                if command == Command::PING {
-                    response_helper::send_pong_response(stream);
-                } else if command == Command::ECHO {
-                    let mut result = String::from("");
-
-                    for arg in args.unwrap().iter() {
-                        let str: &str = arg.borrow();
-                        result.push_str(str);
-                    }
-                    response_helper::send_bulk_string_response(stream, &result);
-                }
-            },
-            None => response_helper::send_simple_string_response(stream, "Unrecognised command")
-        };
     }
 }

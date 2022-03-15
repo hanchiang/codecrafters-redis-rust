@@ -37,9 +37,9 @@ fn handle_connection<T: Read + Write + Send + 'static>(mut stream: T) {
             }
 
             match parsed.unwrap() {
-                Some(p) => {
-                    println!("Completed reading input: {:#?}", p);
-                    p.respond(&mut stream);
+                Some(parsed) => {
+                    println!("Completed reading input: {:#?}", parsed);
+                    client_input.respond(&mut stream, parsed);
                     client_input.reset();
                 }
                 None => {
