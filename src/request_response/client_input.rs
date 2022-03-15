@@ -100,8 +100,13 @@ impl ClientInput {
                 .map(String::from)
                 .collect();
 
+            for s in string_split.iter() {
+                println!("string_split after: {}", s);
+            }
+
             if string_split.len() as u8 == num_args {
                 let command_str = string_split.remove(0);
+                println!("len of {} is {}", command_str, command_str.len());
                 let mut command: Option<Command> = None;
                 if command_str.to_lowercase() == "echo" {
                     command = Some(Command::ECHO);
