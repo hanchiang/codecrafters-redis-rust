@@ -30,7 +30,7 @@ impl ClientInput {
     pub fn read_input_helper<T: Read + Write>(
         &mut self,
         stream: &mut T,
-        mut buffer: [u8; 1024]
+        mut buffer: [u8; 1024],
     ) -> Result<Option<ParsedCommand>, Error> {
         match stream.read(&mut buffer) {
             Ok(size) => {
@@ -48,9 +48,7 @@ impl ClientInput {
 
                 Ok(self.parse())
             }
-            Err(e) => {
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -87,7 +85,7 @@ impl ClientInput {
                 .replace("\\r\\n", "\n")
                 .split("\n")
                 .filter(|s| !s.is_empty())
-                .map(|s| String::from(s.trim()))
+                .map(String::from)
                 .collect();
 
             for s in string_split.iter() {
@@ -128,7 +126,7 @@ impl ClientInput {
         let command = parsed.command();
 
         if command.is_none() {
-            return response_helper::send_simple_string_response(stream, "Unrecognised command")
+            return response_helper::send_simple_string_response(stream, "Unrecognised command");
         }
 
         let command_unwrapped = command.as_ref().unwrap();
@@ -150,7 +148,6 @@ impl ClientInput {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -187,7 +184,7 @@ mod tests {
 
         let parsed = match client_input.parse() {
             Some(p) => p,
-            None => panic!("Client input should be parsed")
+            None => panic!("Client input should be parsed"),
         };
 
         assert_eq!(*parsed.num_args_in_input().as_ref().unwrap(), 1);
@@ -204,11 +201,14 @@ mod tests {
 
         let parsed = match client_input.parse() {
             Some(p) => p,
-            None => panic!("Client input should be parsed")
+            None => panic!("Client input should be parsed"),
         };
 
         assert_eq!(*parsed.num_args_in_input().as_ref().unwrap(), 3);
         assert_eq!(parsed.command().as_ref().unwrap(), &Command::ECHO);
-        assert_eq!(parsed.args().as_ref().unwrap(), &vec![String::from("hello"), String::from("world")]);
+        assert_eq!(
+            parsed.args().as_ref().unwrap(),
+            &vec![String::from("hello"), String::from("world")]
+        );
     }
 }
