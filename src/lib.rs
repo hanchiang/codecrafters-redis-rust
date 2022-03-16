@@ -9,7 +9,7 @@ use request_response::client_input::ClientInput;
 
 // TODO: How to test this?
 pub fn handle_connection<
-    T: Read + Write + Send + 'static
+    T: Read + Write + Send + 'static,
 >(
     mut stream: T
 ) -> JoinHandle<()> {

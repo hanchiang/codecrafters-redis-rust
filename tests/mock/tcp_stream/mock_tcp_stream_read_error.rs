@@ -1,5 +1,4 @@
-use std::fmt::Arguments;
-use std::io::{Error, ErrorKind, IoSlice, Read, Write};
+use std::io::{Error, ErrorKind, Read, Write};
 
 pub struct MockTcpStreamStreamReadError {
     read_buffer: Vec<u8>,

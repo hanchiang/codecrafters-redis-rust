@@ -1,6 +1,5 @@
-use std::fmt::Arguments;
+use std::cmp::min;
 use std::io::{Error, Read, Write};
-use std::marker::Unpin;
 
 pub struct MockTcpStream {
     pub read_buffer: Vec<u8>,
@@ -16,13 +15,11 @@ impl MockTcpStream {
     }
 }
 
-impl Unpin for MockTcpStream {}
-
 impl Read for MockTcpStream {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        let buffer: Vec<u8> = buf.iter().cloned().collect();
-        self.read_buffer = buffer;
-        Ok(self.read_buffer.len())
+        let len_to_copy = min(self.read_buffer.len(), buf.len());
+        buf[..len_to_copy].copy_from_slice(&self.read_buffer[..len_to_copy]);
+        Ok(len_to_copy)
     }
 }
 

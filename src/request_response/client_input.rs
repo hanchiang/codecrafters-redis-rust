@@ -144,7 +144,7 @@ impl ClientInput {
                 println!("string_split after: {}, len: {}", s, s.len());
             }
 
-            if string_split.len() as u8 == num_args {
+            if self.has_complete_input(&string_split, num_args) {
                 let command_str = string_split.remove(0);
                 let mut command: Option<Command> = None;
                 if command_str.to_lowercase() == "echo" {
@@ -163,6 +163,10 @@ impl ClientInput {
                 None
             }
         }
+    }
+
+    fn has_complete_input(&self, string_split: &Vec<String>, num_args: u8) -> bool {
+        string_split.len() as u8 == num_args
     }
 }
 

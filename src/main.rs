@@ -8,7 +8,6 @@ use std::fs;
 use std::net::{TcpListener, TcpStream};
 
 use redis_starter_rust::handle_connection;
-use redis_starter_rust::request_response::client_input::ClientInput;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
