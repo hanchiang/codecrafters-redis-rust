@@ -1,5 +1,6 @@
 use std::fmt::Arguments;
-use std::io::{Error, IoSlice, Read, Write};
+use std::io::{Error, Read, Write};
+use std::marker::Unpin;
 
 pub struct MockTcpStream {
     pub read_buffer: Vec<u8>,
@@ -14,6 +15,8 @@ impl MockTcpStream {
         }
     }
 }
+
+impl Unpin for MockTcpStream {}
 
 impl Read for MockTcpStream {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {

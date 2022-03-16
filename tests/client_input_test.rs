@@ -4,9 +4,10 @@ use std::io::ErrorKind;
 use std::str::from_utf8;
 
 mod mock;
-use mock::mock_tcp_stream::MockTcpStream;
-use mock::mock_tcp_stream_read_error::MockTcpStreamStreamReadError;
-use mock::mock_tcp_stream_read_no_data::MockTcpStreamStreamReadNoData;
+use mock::tcp_stream::mock_tcp_stream::MockTcpStream;
+use mock::tcp_stream::mock_tcp_stream_read_error::MockTcpStreamStreamReadError;
+use mock::tcp_stream::mock_tcp_stream_read_no_data::MockTcpStreamStreamReadNoData;
+use redis_starter_rust::request_response::client_input::HandleClientInput;
 use redis_starter_rust::request_response::parsed_command::ParsedCommand;
 
 #[test]
@@ -24,7 +25,7 @@ fn read_input_helper_read_ping_input_correctly() {
     let parsed_result = client_input.read_input_helper(&mut mock_tcp_stream, buffer);
     let parsed_option = match parsed_result {
         Ok(p) => p,
-        Err(e) => panic!(e),
+        Err(e) => panic!("{}", e),
     };
 
     let parsed = parsed_option.unwrap();
@@ -49,7 +50,7 @@ fn read_input_helper_read_echo_input_correctly() {
     let parsed_result = client_input.read_input_helper(&mut mock_tcp_stream, buffer);
     let parsed_option = match parsed_result {
         Ok(p) => p,
-        Err(e) => panic!(e),
+        Err(e) => panic!("{}", e),
     };
 
     let parsed = parsed_option.unwrap();

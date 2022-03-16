@@ -4,13 +4,11 @@ extern crate core;
 use std::env;
 #[allow(unused_imports)]
 use std::fs;
-use std::io::{Read, Write};
 #[allow(unused_imports)]
 use std::net::{TcpListener, TcpStream};
-use std::thread;
 
-mod request_response;
-use request_response::client_input::ClientInput;
+use redis_starter_rust::handle_connection;
+use redis_starter_rust::request_response::client_input::ClientInput;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -22,30 +20,4 @@ fn main() {
     for wrapped_stream in listener.incoming() {
         handle_connection(wrapped_stream.unwrap());
     }
-}
-
-fn handle_connection<T: Read + Write + Send + 'static>(mut stream: T) {
-    thread::spawn(move || {
-        let mut client_input = ClientInput::new();
-
-        loop {
-            let parsed = client_input.read_input(&mut stream);
-
-            if parsed.is_err() {
-                println!("Unable to read input: {}", parsed.unwrap_err());
-                break;
-            }
-
-            match parsed.unwrap() {
-                Some(parsed) => {
-                    println!("Completed reading input: {:#?}", parsed);
-                    client_input.respond(&mut stream, parsed);
-                    client_input.reset();
-                }
-                None => {
-                    println!("Input is incomplete. Waiting for further input");
-                }
-            }
-        }
-    });
 }

@@ -7,6 +7,58 @@ pub struct ClientInput {
     input: String,
 }
 
+pub trait HandleClientInput {
+    fn read_input<T: Read + Write>(
+        &mut self,
+        stream: &mut T,
+    ) -> Result<Option<ParsedCommand>, Error>;
+
+    fn respond<T: Write>(&self, stream: &mut T, parsed: ParsedCommand);
+
+    fn reset(&mut self);
+}
+
+impl HandleClientInput for ClientInput {
+    fn read_input<T: Read + Write>(
+        &mut self,
+        stream: &mut T,
+    ) -> Result<Option<ParsedCommand>, Error> {
+        let buffer: [u8; 1024] = [0; 1024];
+        self.read_input_helper(stream, buffer)
+    }
+
+    fn respond<T: Write>(&self, stream: &mut T, parsed: ParsedCommand) {
+        let args = parsed.args();
+        let command = parsed.command();
+
+        if command.is_none() {
+            return response_helper::send_simple_string_response(stream, "Unrecognised command");
+        }
+
+        let command_unwrapped = command.as_ref().unwrap();
+
+        if command_unwrapped == &Command::PING {
+            response_helper::send_pong_response(stream);
+        } else if command_unwrapped == &Command::ECHO {
+            let mut result = String::from("");
+
+            if args.is_none() {
+                panic!("args is not set in ParsedCommand.")
+            }
+
+            for arg in args.as_ref().unwrap().iter() {
+                let str: &str = arg.borrow();
+                result.push_str(str);
+            }
+            response_helper::send_bulk_string_response(stream, &result);
+        }
+    }
+
+    fn reset(&mut self) {
+        self.input = String::from("");
+    }
+}
+
 impl ClientInput {
     pub fn new() -> ClientInput {
         ClientInput {
@@ -16,14 +68,6 @@ impl ClientInput {
 
     pub fn get_input(&self) -> &str {
         self.input.as_str()
-    }
-
-    pub fn read_input<T: Read + Write>(
-        &mut self,
-        stream: &mut T,
-    ) -> Result<Option<ParsedCommand>, Error> {
-        let buffer: [u8; 1024] = [0; 1024];
-        self.read_input_helper(stream, buffer)
     }
 
     // TODO: Find a better approach. This is an ugly hack in order to test the method
@@ -52,18 +96,14 @@ impl ClientInput {
         }
     }
 
-    pub fn reset(&mut self) {
-        self.input = String::from("");
-    }
-
-    pub fn append_input(&mut self, input: &str) {
+    fn append_input(&mut self, input: &str) {
         println!("received input: {}", input.replace("\0", "").as_str());
         self.input.push_str(input.replace("\0", "").as_str());
     }
 
     /// Format: *{number of arguments}\r\n${number of bytes}\r\n${number of bytes}\r\n...
     /// https://redis.io/topics/protocol#sending-commands-to-a-redis-server
-    pub fn parse(&self) -> Option<ParsedCommand> {
+    fn parse(&self) -> Option<ParsedCommand> {
         let input = self.input.as_str();
 
         if input.len() == 0 {
@@ -122,33 +162,6 @@ impl ClientInput {
             } else {
                 None
             }
-        }
-    }
-
-    pub fn respond<T: Write>(&self, stream: &mut T, parsed: ParsedCommand) {
-        let args = parsed.args();
-        let command = parsed.command();
-
-        if command.is_none() {
-            return response_helper::send_simple_string_response(stream, "Unrecognised command");
-        }
-
-        let command_unwrapped = command.as_ref().unwrap();
-
-        if command_unwrapped == &Command::PING {
-            response_helper::send_pong_response(stream);
-        } else if command_unwrapped == &Command::ECHO {
-            let mut result = String::from("");
-
-            if args.is_none() {
-                panic!("args is not set in ParsedCommand.")
-            }
-
-            for arg in args.as_ref().unwrap().iter() {
-                let str: &str = arg.borrow();
-                result.push_str(str);
-            }
-            response_helper::send_bulk_string_response(stream, &result);
         }
     }
 }
