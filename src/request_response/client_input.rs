@@ -23,8 +23,26 @@ impl HandleClientInput for ClientInput {
         &mut self,
         stream: &mut T,
     ) -> Result<Option<ParsedCommand>, Error> {
-        let buffer: [u8; 1024] = [0; 1024];
-        self.read_input_helper(stream, buffer)
+        let mut buffer: [u8; 1024] = [0; 1024];
+
+        match stream.read(&mut buffer) {
+            Ok(size) => {
+                println!("Read {} bytes from input", size);
+
+                if size == 0 {
+                    return Err(Error::new(
+                        ErrorKind::ConnectionAborted,
+                        "Connection closed",
+                    ));
+                }
+
+                let buffer_string = String::from_utf8_lossy(&buffer);
+                self.append_input(&buffer_string);
+
+                Ok(self.parse())
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn respond<T: Write>(&self, stream: &mut T, parsed: ParsedCommand) {
@@ -70,32 +88,6 @@ impl ClientInput {
         self.input.as_str()
     }
 
-    // TODO: Find a better approach. This is an ugly hack in order to test the method
-    pub fn read_input_helper<T: Read + Write>(
-        &mut self,
-        stream: &mut T,
-        mut buffer: [u8; 1024],
-    ) -> Result<Option<ParsedCommand>, Error> {
-        match stream.read(&mut buffer) {
-            Ok(size) => {
-                println!("Read {} bytes from input", size);
-
-                if size == 0 {
-                    return Err(Error::new(
-                        ErrorKind::ConnectionAborted,
-                        "Connection closed",
-                    ));
-                }
-
-                let buffer_string = String::from_utf8_lossy(&buffer);
-                self.append_input(&buffer_string);
-
-                Ok(self.parse())
-            }
-            Err(e) => Err(e),
-        }
-    }
-
     fn append_input(&mut self, input: &str) {
         println!("received input: {}", input.replace("\0", "").as_str());
         self.input.push_str(input.replace("\0", "").as_str());
@@ -110,6 +102,8 @@ impl ClientInput {
             println!("No input.");
             return None;
         }
+
+        println!("input: {}", input);
 
         if &input[0..1] != "*" {
             println!("Unrecognised command!");

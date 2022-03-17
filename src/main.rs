@@ -6,6 +6,7 @@ use std::env;
 use std::fs;
 #[allow(unused_imports)]
 use std::net::{TcpListener, TcpStream};
+use std::thread;
 
 use redis_starter_rust::handle_connection;
 
@@ -17,6 +18,7 @@ fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
     for wrapped_stream in listener.incoming() {
-        handle_connection(wrapped_stream.unwrap());
+        let stream = wrapped_stream.unwrap();
+        thread::spawn(move || handle_connection(stream));
     }
 }

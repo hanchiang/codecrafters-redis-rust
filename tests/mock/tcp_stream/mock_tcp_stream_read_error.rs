@@ -1,8 +1,8 @@
 use std::io::{Error, ErrorKind, Read, Write};
 
 pub struct MockTcpStreamStreamReadError {
-    read_buffer: Vec<u8>,
-    write_buffer: Vec<u8>
+    pub read_buffer: Vec<u8>,
+    pub write_buffer: Vec<u8>
 }
 
 impl MockTcpStreamStreamReadError {
@@ -15,7 +15,7 @@ impl MockTcpStreamStreamReadError {
 }
 
 impl Read for MockTcpStreamStreamReadError {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+    fn read(&mut self, _buf: &mut [u8]) -> Result<usize, Error> {
         Err(Error::new(ErrorKind::PermissionDenied, "permission denied"))
     }
 }

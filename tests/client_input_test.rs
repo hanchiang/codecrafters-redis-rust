@@ -1,28 +1,25 @@
-use redis_starter_rust::request_response::{client_input::ClientInput, command::Command};
 use std::borrow::Borrow;
 use std::io::{ErrorKind};
+
+use redis_starter_rust::request_response::{client_input::ClientInput, command::Command};
+use redis_starter_rust::request_response::client_input::HandleClientInput;
+use redis_starter_rust::request_response::parsed_command::ParsedCommand;
 
 mod mock;
 use mock::tcp_stream::mock_tcp_stream::MockTcpStream;
 use mock::tcp_stream::mock_tcp_stream_read_error::MockTcpStreamStreamReadError;
-use redis_starter_rust::request_response::client_input::HandleClientInput;
-use redis_starter_rust::request_response::parsed_command::ParsedCommand;
+
+use mock::common::mock_input::{generate_ping_buffer, generate_echo_buffer};
 
 #[test]
 fn read_input_helper_read_ping_input_correctly() {
-    let input = "*1\\r\\n$4\\r\\nPING\\r\\n";
-    let input_bytes = input.as_bytes();
-    let mut buffer: [u8; 1024] = [0; 1024];
-
-    for i in 0..input_bytes.len() {
-        buffer[i] = input_bytes[i];
-    }
+    let buffer = generate_ping_buffer();
 
     let mut client_input = ClientInput::new();
     let mut mock_tcp_stream = MockTcpStream::new();
     mock_tcp_stream.read_buffer = buffer.to_vec();
 
-    let parsed_result = client_input.read_input_helper(&mut mock_tcp_stream, buffer);
+    let parsed_result = client_input.read_input(&mut mock_tcp_stream);
     let parsed_option = match parsed_result {
         Ok(p) => p,
         Err(e) => panic!("{}", e),
@@ -37,19 +34,13 @@ fn read_input_helper_read_ping_input_correctly() {
 
 #[test]
 fn read_input_helper_read_echo_input_correctly() {
-    let input = "*3\\r\\n$4\\r\\nECHO\\r\\n$5\\r\\nhello\\r\\n$5\\r\\nworld\\r\\n";
-    let input_bytes = input.as_bytes();
-    let mut buffer: [u8; 1024] = [0; 1024];
-
-    for i in 0..input_bytes.len() {
-        buffer[i] = input_bytes[i];
-    }
+    let buffer = generate_echo_buffer();
 
     let mut client_input = ClientInput::new();
     let mut mock_tcp_stream = MockTcpStream::new();
     mock_tcp_stream.read_buffer = buffer.to_vec();
 
-    let parsed_result = client_input.read_input_helper(&mut mock_tcp_stream, buffer);
+    let parsed_result = client_input.read_input(&mut mock_tcp_stream);
     let parsed_option = match parsed_result {
         Ok(p) => p,
         Err(e) => panic!("{}", e),
@@ -69,15 +60,8 @@ fn read_input_helper_read_echo_input_correctly() {
 fn read_input_helper_return_err_if_no_data_is_read() {
     let mut client_input = ClientInput::new();
     let mut mock_tcp_stream = MockTcpStream::new();
-    let input = "";
-    let input_bytes = input.as_bytes();
-    let mut buffer: [u8; 1024] = [0; 1024];
 
-    for i in 0..input_bytes.len() {
-        buffer[i] = input_bytes[i];
-    }
-
-    let parsed = client_input.read_input_helper(&mut mock_tcp_stream, buffer);
+    let parsed = client_input.read_input(&mut mock_tcp_stream);
     assert!(parsed.is_err());
 
     let error = parsed.unwrap_err();
@@ -88,15 +72,8 @@ fn read_input_helper_return_err_if_no_data_is_read() {
 fn read_input_helper_return_err_if_read_returns_error() {
     let mut client_input = ClientInput::new();
     let mut mock_tcp_stream = MockTcpStreamStreamReadError::new();
-    let input = "";
-    let input_bytes = input.as_bytes();
-    let mut buffer: [u8; 1024] = [0; 1024];
 
-    for i in 0..input_bytes.len() {
-        buffer[i] = input_bytes[i];
-    }
-
-    let parsed = client_input.read_input_helper(&mut mock_tcp_stream, buffer);
+    let parsed = client_input.read_input(&mut mock_tcp_stream);
     assert!(parsed.is_err());
 
     let error = parsed.unwrap_err();
