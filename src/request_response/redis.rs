@@ -1,4 +1,4 @@
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::{BorrowMut};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Once, RwLock};
@@ -54,7 +54,7 @@ pub trait Store {
 
     fn get(&self, key: &str) -> Option<&str>;
 
-    fn set(&mut self, key: &str, value: &str) -> Option<String>;
+    fn set(&mut self, key: &str, value: &str) -> Option<DataType>;
 }
 
 impl Store for RedisStore {
@@ -92,15 +92,14 @@ impl Store for RedisStore {
         None
     }
 
-    fn set(&mut self, key: &str, value: &str) -> Option<String> {
+    fn set(&mut self, key: &str, value: &str) -> Option<DataType> {
         self.data
-            .insert(String::from(key), DataType::String(String::from(value)));
-        Some(String::from("OK"))
+            .insert(String::from(key), DataType::String(String::from(value)))
     }
 }
 
 impl RedisStore {
-    fn initialise_test() {
+    pub fn initialise_test() {
         match STORE.try_write() {
             Ok(mut store_lock) => {
                 let mut wrapped_store = store_lock.deref_mut();
@@ -124,7 +123,7 @@ impl RedisStore {
         }
     }
 
-    fn reset() {
+    pub fn reset() {
         match STORE.try_write() {
             Ok(mut store_lock) => {
                 let store_lock = store_lock.borrow_mut();

@@ -155,19 +155,3 @@ fn respond_return_input_if_command_is_echo() {
     assert_eq!(written_bytes, expected_bytes);
 }
 
-#[test]
-fn respond_return_nil_for_get_command_if_there_is_no_data() {
-    let mut parsed = ParsedCommand::new();
-    parsed.set_command(Some(Command::GET));
-    parsed.set_args(Some(vec![String::from("hello")]));
-    parsed.set_num_args_in_input(Some(2));
-
-    let mut mock_tcp_stream = MockTcpStream::new();
-    let client_input = ClientInput::new();
-    client_input.respond(&mut mock_tcp_stream, parsed);
-
-    let written_bytes: &[u8] = mock_tcp_stream.write_buffer.borrow();
-    let expected_bytes = "$-1\r\n".as_bytes();
-
-    assert_eq!(written_bytes, expected_bytes);
-}

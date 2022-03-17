@@ -72,7 +72,6 @@ impl HandleClientInput for ClientInput {
             }
             response_helper::send_bulk_string_response(stream, Some(&result));
         } else if command_unwrapped == &Command::GET {
-            RedisStore::initialise();
             let store_lock_result = RedisStore::get_store().try_read();
 
             if store_lock_result.is_err() {
@@ -93,6 +92,24 @@ impl HandleClientInput for ClientInput {
                 }
             };
             response_helper::send_bulk_string_response(stream, result);
+        } else if command_unwrapped == &Command::SET {
+            let arguments = args.as_ref().unwrap();
+            let key = arguments.get(0).unwrap();
+            let value = arguments.get(1).unwrap();
+
+            let store_lock_result = RedisStore::get_store().try_write();
+
+            if store_lock_result.is_err() {
+                println!("Error when getting write lock for store: {:?}", store_lock_result.unwrap_err());
+                return;
+            }
+
+            let mut store_guard = store_lock_result.unwrap();
+            let store_lock = store_guard.as_mut();
+            if let Some(store) = store_lock {
+                store.set(key ,value);
+                response_helper::send_bulk_string_response(stream, Some("OK"));
+            }
         }
     }
 

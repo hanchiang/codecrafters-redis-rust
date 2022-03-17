@@ -1,7 +1,7 @@
 use std::io::Write;
 
 pub fn send_bulk_string_response<T: Write>(stream: &mut T, data: Option<&str>) {
-    let mut response: String;
+    let response: String;
     if data.is_some() {
         let str = data.unwrap();
         response = format!("${}\r\n{}\r\n", str.len(), str);

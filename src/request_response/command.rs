@@ -3,6 +3,7 @@ pub enum Command {
     PING,
     ECHO,
     GET,
+    SET,
 }
 
 impl Command {
@@ -15,6 +16,8 @@ impl Command {
             command = Some(Command::PING);
         } else if str.to_lowercase() == "get" {
             command = Some(Command::GET);
+        } else if str.to_lowercase() == "set" {
+            command = Some(Command::SET);
         }
 
         command
@@ -51,5 +54,12 @@ mod tests {
         let result = Command::from("get");
         assert!(result.is_some());
         assert_eq!(result.unwrap(), Command::GET);
+    }
+
+    #[test]
+    fn return_set_command() {
+        let result = Command::from("set");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), Command::SET);
     }
 }
