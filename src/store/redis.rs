@@ -157,7 +157,7 @@ mod tests {
     use std::borrow::BorrowMut;
     use std::thread;
 
-    fn run_test<F>(test: F)
+    fn with_reset_redis<F>(test: F)
     where
         F: FnOnce() -> (),
     {
@@ -169,7 +169,7 @@ mod tests {
     #[serial]
     #[should_panic(expected = "Store is not initialised")]
     fn panic_if_get_store_before_store_is_initialised() {
-        run_test(|| {
+        with_reset_redis(|| {
             RedisStore::get_store();
         });
     }
@@ -177,7 +177,7 @@ mod tests {
     #[test]
     #[serial]
     fn should_initialise_store_only_once() {
-        run_test(|| {
+        with_reset_redis(|| {
             let thread1 = thread::spawn(|| {
                 RedisStore::initialise_test();
             });
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     #[serial]
     fn get_returns_none_if_key_is_not_found() {
-        run_test(|| {
+        with_reset_redis(|| {
             RedisStore::initialise_test();
             let store_lock = RedisStore::get_store();
             let store_lock_guard = store_lock.read().unwrap();
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     #[serial]
     fn get_returns_string_if_key_is_found() {
-        run_test(|| {
+        with_reset_redis(|| {
             RedisStore::initialise_test();
 
             let mut store_lock = RedisStore::get_store().write();
@@ -236,7 +236,7 @@ mod tests {
     #[test]
     #[serial]
     fn can_reset_correctly() {
-        run_test(|| {
+        with_reset_redis(|| {
             RedisStore::initialise_test();
 
             {
