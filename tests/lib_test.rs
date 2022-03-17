@@ -3,7 +3,7 @@ use std::str::from_utf8;
 
 use redis_starter_rust::handle_connection_helper;
 use redis_starter_rust::request_response::client_input::ClientInput;
-use redis_starter_rust::request_response::redis::{RedisStore, Store};
+use redis_starter_rust::store::redis::{RedisStore, Store};
 
 mod mock;
 

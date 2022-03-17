@@ -3,7 +3,7 @@ use std::io::{Error, ErrorKind, Read, Write};
 use std::ops::Deref;
 
 use crate::request_response::{command::Command, parsed_command::ParsedCommand, response_helper};
-use crate::request_response::redis::{RedisStore, Store};
+use crate::store::redis::{RedisStore, Store};
 
 pub struct ClientInput {
     input: String,
@@ -94,6 +94,8 @@ impl HandleClientInput for ClientInput {
             response_helper::send_bulk_string_response(stream, result);
         } else if command_unwrapped == &Command::SET {
             let arguments = args.as_ref().unwrap();
+
+            // set <key> <value> [ex seconds | px milliseconds]
             let key = arguments.get(0).unwrap();
             let value = arguments.get(1).unwrap();
 

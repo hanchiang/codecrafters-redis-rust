@@ -9,7 +9,7 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 use redis_starter_rust::handle_connection;
-use redis_starter_rust::request_response::redis::{RedisStore, Store};
+use redis_starter_rust::store::redis::{RedisStore, Store};
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
