@@ -14,6 +14,16 @@ pub fn generate_incomplete_input_buffer() -> [u8; 1024] {
     str_to_bytes(input)
 }
 
+pub fn generate_get_buffer() -> [u8; 1024] {
+    let input = "*2\\r\\n$3\\r\\nGET\\r\\n$5\\r\\nhello\\r\\n";
+    str_to_bytes(input)
+}
+
+pub fn generate_set_buffer() -> [u8; 1024] {
+    let input = "*3\\r\\n$3\\r\\nSET\\r\\n$5\\r\\nhello\\r\\n$5\\r\\nworld\\r\\n";
+    str_to_bytes(input)
+}
+
 fn str_to_bytes(str: &str) -> [u8; 1024] {
     let input_bytes = str.as_bytes();
     let mut buffer: [u8; 1024] = [0; 1024];

@@ -1,7 +1,9 @@
 use std::borrow::Borrow;
 use std::io::{Error, ErrorKind, Read, Write};
+use std::ops::Deref;
 
 use crate::request_response::{command::Command, parsed_command::ParsedCommand, response_helper};
+use crate::request_response::redis::{RedisStore, Store};
 
 pub struct ClientInput {
     input: String,
@@ -68,7 +70,29 @@ impl HandleClientInput for ClientInput {
                 let str: &str = arg.borrow();
                 result.push_str(str);
             }
-            response_helper::send_bulk_string_response(stream, &result);
+            response_helper::send_bulk_string_response(stream, Some(&result));
+        } else if command_unwrapped == &Command::GET {
+            RedisStore::initialise();
+            let store_lock_result = RedisStore::get_store().try_read();
+
+            if store_lock_result.is_err() {
+                println!("Error when getting read lock for store: {:?}", store_lock_result.unwrap_err());
+                return;
+            }
+
+            let store_lock = store_lock_result.unwrap();
+
+            let result = match store_lock.deref() {
+                Some(store) => {
+                    let argument = args.as_ref().unwrap().get(0).unwrap();
+                    let result = store.get(argument.as_str());
+                    result
+                },
+                None => {
+                    None
+                }
+            };
+            response_helper::send_bulk_string_response(stream, result);
         }
     }
 
@@ -113,39 +137,11 @@ impl ClientInput {
             let num_args: u8 = num_args_ref.clone();
             println!("num args: {}", num_args);
 
-            // TODO: Parsing method can be improved
-            let input: &str = self.input.borrow();
-            let mut string_split: Vec<String> = input
-                .replace("\\r\\n", "\n")
-                .split("\n")
-                .filter(|s| !s.is_empty())
-                .map(|s| String::from(s.trim()))
-                .collect();
-
-            for s in string_split.iter() {
-                println!("string_split before: {}, len: {}", s, s.len());
-            }
-
-            // Discard the number of bytes for each bulk string, i.e. ${number of bytes}
-            string_split = string_split
-                .iter()
-                .skip(2)
-                .step_by(2)
-                .map(String::from)
-                .collect();
-
-            for s in string_split.iter() {
-                println!("string_split after: {}, len: {}", s, s.len());
-            }
+            let mut string_split = self.parse_string_into_vector(&self.input);
 
             if self.has_complete_input(&string_split, num_args) {
                 let command_str = string_split.remove(0);
-                let mut command: Option<Command> = None;
-                if command_str.to_lowercase() == "echo" {
-                    command = Some(Command::ECHO);
-                } else if command_str.to_lowercase() == "ping" {
-                    command = Some(Command::PING);
-                }
+                let command = Command::from(&command_str);
 
                 let mut parsed = ParsedCommand::new();
                 parsed.set_args(Some(string_split));
@@ -157,6 +153,34 @@ impl ClientInput {
                 None
             }
         }
+    }
+
+    // TODO: Parsing method can be improved
+    fn parse_string_into_vector(&self, input: &str) -> Vec<String> {
+        let mut string_split: Vec<String> = input
+            .replace("\\r\\n", "\n")
+            .split("\n")
+            .filter(|s| !s.is_empty())
+            .map(|s| String::from(s.trim()))
+            .collect();
+
+        for s in string_split.iter() {
+            println!("string_split before: {}, len: {}", s, s.len());
+        }
+
+        // Discard the number of bytes for each bulk string, i.e. ${number of bytes}
+        string_split = string_split
+            .iter()
+            .skip(2)
+            .step_by(2)
+            .map(String::from)
+            .collect();
+
+        for s in string_split.iter() {
+            println!("string_split after: {}, len: {}", s, s.len());
+        }
+
+        string_split
     }
 
     fn has_complete_input(&self, string_split: &Vec<String>, num_args: u8) -> bool {
@@ -224,6 +248,26 @@ mod tests {
         assert_eq!(
             parsed.args().as_ref().unwrap(),
             &vec![String::from("hello"), String::from("world")]
+        );
+    }
+
+    #[test]
+    fn parse_get_command_correctly() {
+        let input = "*2\\r\\n$3\\r\\nGET\\r\\n$5\\r\\nhello\\r\\n";
+
+        let mut client_input = ClientInput::new();
+        client_input.append_input(input);
+
+        let parsed = match client_input.parse() {
+            Some(p) => p,
+            None => panic!("Client input should be parsed"),
+        };
+
+        assert_eq!(*parsed.num_args_in_input().as_ref().unwrap(), 2);
+        assert_eq!(parsed.command().as_ref().unwrap(), &Command::GET);
+        assert_eq!(
+            parsed.args().as_ref().unwrap(),
+            &vec![String::from("hello")]
         );
     }
 }

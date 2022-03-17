@@ -1,7 +1,14 @@
 use std::io::Write;
 
-pub fn send_bulk_string_response<T: Write>(stream: &mut T, data: &str) {
-    let response = format!("${}\r\n{}\r\n", data.len(), data);
+pub fn send_bulk_string_response<T: Write>(stream: &mut T, data: Option<&str>) {
+    let mut response: String;
+    if data.is_some() {
+        let str = data.unwrap();
+        response = format!("${}\r\n{}\r\n", str.len(), str);
+    } else {
+        response = String::from("$-1\r\n");
+    }
+
     match stream.write(response.as_bytes()) {
         Ok(t) => {
             println!("Wrote {} bytes to output", t);

@@ -21,3 +21,5 @@ edition = "2018"
 [dependencies]
 bytes = "0.5" # helps manage buffers
 tokio = { version = "0.2", features = ["full"] } # async networking
+lazy_static = "1.4.0"
+serial_test = "0.6.0"
