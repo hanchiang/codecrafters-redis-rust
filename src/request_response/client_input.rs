@@ -186,8 +186,8 @@ impl ClientInput {
         let mut string_split: Vec<String> = input
             .replace("\\r\\n", "\n")
             .split("\n")
-            .filter(|s| !s.is_empty())
             .map(|s| String::from(s.trim()))
+            .filter(|s| !s.is_empty())
             .collect();
 
         for s in string_split.iter() {
