@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use chrono::{DateTime, Utc};
 
 // TODO: sorted set, bit array, hyperloglog, stream
 #[derive(Debug)]
@@ -28,12 +29,37 @@ pub struct Hash {
     data: HashMap<String, String>,
 }
 
-pub struct SetOptionalArgs {
-    expiry: Option<SetExpiry>
+#[derive(Debug)]
+pub struct DateTimeMeta {
+    pub created_at: DateTime<Utc>,
+    pub expire_at: Option<DateTime<Utc>>
 }
 
-// Only 1 of 'ex' and 'px' can have a value
-struct SetExpiry {
-    ex: Option<u8>,   // expire time in seconds
-    px: Option<u8>    // expire time in milliseconds
+pub struct DateTimeMetaBuilder {
+    created_at: DateTime<Utc>,
+    expire_at: Option<DateTime<Utc>>
 }
+
+impl DateTimeMetaBuilder {
+    pub fn new(created_at: DateTime<Utc>) -> DateTimeMetaBuilder {
+        DateTimeMetaBuilder {
+            created_at,
+            expire_at: None
+        }
+    }
+
+    pub fn expire_at(mut self, expire_at: Option<DateTime<Utc>>) -> DateTimeMetaBuilder {
+        self.expire_at = expire_at;
+        self
+    }
+
+    pub fn build(self) -> DateTimeMeta {
+        DateTimeMeta {
+            created_at: self.created_at,
+            expire_at: self.expire_at
+        }
+    }
+}
+
+
+

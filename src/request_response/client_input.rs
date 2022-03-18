@@ -1,9 +1,10 @@
 use std::borrow::Borrow;
 use std::io::{Error, ErrorKind, Read, Write};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use crate::request_response::{command::Command, parsed_command::ParsedCommand, response_helper};
 use crate::store::redis::{RedisStore, Store};
+use crate::store::redis_operation::SetOptionalArgs;
 
 pub struct ClientInput {
     input: String,
@@ -72,44 +73,50 @@ impl HandleClientInput for ClientInput {
             }
             response_helper::send_bulk_string_response(stream, Some(&result));
         } else if command_unwrapped == &Command::GET {
-            let store_lock_result = RedisStore::get_store().try_read();
-
-            if store_lock_result.is_err() {
-                println!("Error when getting read lock for store: {:?}", store_lock_result.unwrap_err());
+            let key_expired_for_get = self.get_key_and_expiry(args);
+            if key_expired_for_get.is_none() {
+                response_helper::send_bulk_string_response(stream, None);
                 return;
             }
 
-            let store_lock = store_lock_result.unwrap();
+            let KeyValueExpiry {
+                key,
+                value,
+                is_expired,
+            } = key_expired_for_get.unwrap();
 
-            let result = match store_lock.deref() {
-                Some(store) => {
-                    let argument = args.as_ref().unwrap().get(0).unwrap();
-                    let result = store.get(argument.as_str());
-                    result
-                },
-                None => {
-                    None
-                }
-            };
-            response_helper::send_bulk_string_response(stream, result);
+            println!("key: {}, value: {}, is_expired: {}", key, value.as_ref().unwrap_or(&String::from("")), is_expired);
+
+            if is_expired {
+                self.delete_expired_keys(vec![&key]);
+                response_helper::send_bulk_string_response(stream, None);
+            } else {
+                let value = value.as_ref().map(|v| &**v);
+                response_helper::send_bulk_string_response(stream, value);
+            }
+
         } else if command_unwrapped == &Command::SET {
             let arguments = args.as_ref().unwrap();
-
-            // set <key> <value> [ex seconds | px milliseconds]
-            let key = arguments.get(0).unwrap();
-            let value = arguments.get(1).unwrap();
 
             let store_lock_result = RedisStore::get_store().try_write();
 
             if store_lock_result.is_err() {
-                println!("Error when getting write lock for store: {:?}", store_lock_result.unwrap_err());
+                println!(
+                    "Error when getting write lock for store: {:?}",
+                    store_lock_result.unwrap_err()
+                );
                 return;
             }
 
             let mut store_guard = store_lock_result.unwrap();
             let store_lock = store_guard.as_mut();
             if let Some(store) = store_lock {
-                store.set(key, value, None);
+                // set <key> <value> [ex seconds | px milliseconds]
+                let key = arguments.get(0).unwrap();
+                let value = arguments.get(1).unwrap();
+                let optional_args = self.determine_set_optional_args(arguments);
+
+                store.set(key, value, &optional_args);
                 response_helper::send_bulk_string_response(stream, Some("OK"));
             }
         }
@@ -205,6 +212,97 @@ impl ClientInput {
     fn has_complete_input(&self, string_split: &Vec<String>, num_args: u8) -> bool {
         string_split.len() as u8 == num_args
     }
+
+    fn determine_set_optional_args(&self, arguments: &Vec<String>) -> Option<SetOptionalArgs> {
+        let mut optional_args: Option<SetOptionalArgs> = None;
+
+        if arguments.len() != 4 {
+            return optional_args;
+        }
+
+        let variant = arguments.get(2).unwrap();
+        let duration = arguments.get(3).unwrap();
+        let mut duration_ms: u64 = 0;
+
+        // if variant is "ex", duration is in seconds
+        // if variant is "px", duration is in milliseconds
+        if variant.to_lowercase() == "ex" || variant.to_lowercase() == "px" {
+            duration_ms = match duration.parse() {
+                Ok(d) => d,
+                Err(e) => {
+                    println!("Error parsing duration: {}", e);
+                    0
+                }
+            };
+
+            if variant.to_lowercase() == "ex" {
+                duration_ms *= 1000;
+            }
+        }
+        if duration_ms != 0 {
+            optional_args = Some(SetOptionalArgs {
+                expire_in_ms: Some(duration_ms),
+            });
+        }
+        optional_args
+    }
+
+    fn delete_expired_keys(&self, keys: Vec<&str>) {
+        let store_lock_result = RedisStore::get_store().write();
+
+        if store_lock_result.is_err() {
+            println!(
+                "Error when getting write lock for store: {:?}",
+                store_lock_result.unwrap_err()
+            );
+            return;
+        }
+
+        let mut store_guard = store_lock_result.unwrap();
+        let store_lock = store_guard.as_mut();
+        if let Some(store) = store_lock {
+            store.delete(keys);
+        }
+    }
+
+    fn get_key_and_expiry(
+        &self,
+        args: &Option<Vec<String>>,
+    ) -> Option<KeyValueExpiry> {
+        let store_lock_result = RedisStore::get_store().try_read();
+
+        if store_lock_result.is_err() {
+            println!(
+                "Error when getting read lock for store: {:?}",
+                store_lock_result.unwrap_err()
+            );
+            return None;
+        }
+
+        let store_lock = store_lock_result.unwrap();
+
+        match store_lock.deref() {
+            Some(store) => {
+                let key = args.as_ref().unwrap().get(0).unwrap();
+                let value = store.get(key.as_str());
+                let is_expired = store.is_key_expired(key);
+
+                Some(KeyValueExpiry {
+                    key: String::from(key),
+                    value: value.map(String::from),
+                    is_expired,
+                })
+            }
+            None => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct KeyValueExpiry {
+    key: String,
+    value: Option<String>,
+    is_expired: bool,
 }
 
 #[cfg(test)]
@@ -288,5 +386,47 @@ mod tests {
             parsed.args().as_ref().unwrap(),
             &vec![String::from("hello")]
         );
+    }
+
+    #[test]
+    fn determine_set_optional_args_return_some_when_expiry_args_are_present() {
+        let mut client_input = ClientInput::new();
+        let args = vec![
+            String::from("hello"),
+            String::from("world"),
+            String::from("px"),
+            String::from("1000"),
+        ];
+
+        let set_args = client_input.determine_set_optional_args(&args);
+        assert!(set_args.is_some());
+
+        let args = set_args.unwrap();
+        assert!(args.expire_in_ms.is_some());
+        assert_eq!(args.expire_in_ms.unwrap(), 1000);
+    }
+
+    #[test]
+    fn determine_set_optional_args_return_none_when_expiry_args_are_not_present() {
+        let mut client_input = ClientInput::new();
+        let input = vec![
+            vec![String::from("hello"), String::from("world")],
+            vec![
+                String::from("hello"),
+                String::from("world"),
+                String::from("px"),
+            ],
+            vec![
+                String::from("hello"),
+                String::from("world"),
+                String::from("px"),
+                String::from("px"),
+            ],
+        ];
+
+        for i in input {
+            let set_args = client_input.determine_set_optional_args(&i);
+            assert!(set_args.is_none());
+        }
     }
 }
