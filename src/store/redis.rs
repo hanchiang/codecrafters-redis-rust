@@ -1,4 +1,4 @@
-use std::borrow::{BorrowMut};
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Once, RwLock};
@@ -6,33 +6,7 @@ use std::sync::{Once, RwLock};
 use lazy_static::lazy_static;
 use serial_test::serial;
 
-// TODO: sorted set, bit array, hyperloglog, stream
-#[derive(Debug)]
-pub enum DataType {
-    String(String),
-    List(LinkedList),
-}
-
-#[derive(Debug)]
-pub struct LinkedList {
-    head: LinkedListNode,
-}
-
-#[derive(Debug)]
-struct LinkedListNode {
-    data: String,
-    next: Option<Box<LinkedList>>,
-}
-
-#[derive(Debug)]
-pub struct Set<T> {
-    data: HashMap<T, String>,
-}
-
-#[derive(Debug)]
-pub struct Hash {
-    data: HashMap<String, String>,
-}
+use crate::store::redis_data_structure::{DataType, SetOptionalArgs};
 
 // Is this the best way to store data?
 lazy_static! {
@@ -52,9 +26,11 @@ pub trait Store {
 
     fn get_store() -> &'static RwLock<Option<RedisStore>>;
 
+    // https://redis.io/commands/get
     fn get(&self, key: &str) -> Option<&str>;
 
-    fn set(&mut self, key: &str, value: &str) -> Option<DataType>;
+    // https://redis.io/commands/set
+    fn set(&mut self, key: &str, value: &str, opt: Option<SetOptionalArgs>) -> Option<DataType>;
 }
 
 impl Store for RedisStore {
@@ -92,7 +68,7 @@ impl Store for RedisStore {
         None
     }
 
-    fn set(&mut self, key: &str, value: &str) -> Option<DataType> {
+    fn set(&mut self, key: &str, value: &str, opt: Option<SetOptionalArgs>) -> Option<DataType> {
         self.data
             .insert(String::from(key), DataType::String(String::from(value)))
     }
@@ -189,10 +165,52 @@ mod tests {
             thread1.join();
             thread2.join();
 
+            let store_lock = RedisStore::get_store().read().unwrap();
+            if let Some(store) = store_lock.deref() {
+                let keys: Vec<String> = store.data.keys().cloned().collect();
+                assert_eq!(keys.len(), 0);
+            } else {
+                panic!("Store is empty")
+            }
+
             unsafe {
                 assert_eq!(INIT_COUNT, 1);
             }
         });
+    }
+
+    #[test]
+    #[serial]
+    fn can_reset_correctly() {
+        with_reset_redis(|| {
+            RedisStore::initialise_test();
+
+            {
+                let mut store_lock = RedisStore::get_store().write();
+                let mut store_guard = store_lock.unwrap();
+                let wrapped_store = store_guard.as_mut();
+                if wrapped_store.is_some() {
+                    let mut store = wrapped_store.unwrap();
+                    let key = "key";
+                    let value = "value";
+
+                    store.set(key, value, None);
+
+                    let result = store.get(key);
+                    assert_eq!(result.unwrap(), value);
+                }
+            }
+
+            RedisStore::reset();
+            RedisStore::initialise_test();
+
+            let store_lock = RedisStore::get_store();
+            let store_guard = store_lock.read().unwrap();
+            if let Some(store) = store_guard.deref() {
+                let keys: Vec<String> = store.data.keys().cloned().collect();
+                assert_eq!(keys.len(), 0);
+            }
+        })
     }
 
     #[test]
@@ -224,45 +242,11 @@ mod tests {
                 let key = "key";
                 let value = "value";
 
-                store.set(key, value);
+                store.set(key, value, None);
 
                 let result = store.get(key);
                 assert!(result.is_some());
                 assert_eq!(result.unwrap(), value);
-            }
-        })
-    }
-
-    #[test]
-    #[serial]
-    fn can_reset_correctly() {
-        with_reset_redis(|| {
-            RedisStore::initialise_test();
-
-            {
-                let mut store_lock = RedisStore::get_store().write();
-                let mut store_guard = store_lock.unwrap();
-                let wrapped_store = store_guard.as_mut();
-                if wrapped_store.is_some() {
-                    let mut store = wrapped_store.unwrap();
-                    let key = "key";
-                    let value = "value";
-
-                    store.set(key, value);
-
-                    let result = store.get(key);
-                    assert_eq!(result.unwrap(), value);
-                }
-            }
-
-            RedisStore::reset();
-            RedisStore::initialise_test();
-
-            let store_lock = RedisStore::get_store();
-            let store_guard = store_lock.read().unwrap();
-            if let Some(store) = store_guard.deref() {
-                let keys: Vec<String> = store.data.keys().cloned().collect();
-                assert_eq!(keys.len(), 0);
             }
         })
     }

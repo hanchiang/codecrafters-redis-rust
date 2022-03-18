@@ -109,7 +109,7 @@ impl HandleClientInput for ClientInput {
             let mut store_guard = store_lock_result.unwrap();
             let store_lock = store_guard.as_mut();
             if let Some(store) = store_lock {
-                store.set(key ,value);
+                store.set(key, value, None);
                 response_helper::send_bulk_string_response(stream, Some("OK"));
             }
         }
