@@ -32,6 +32,100 @@ Note: This section is for stages 2 and beyond.
 1. Commit your changes and run `git push origin master` to submit your solution
    to CodeCrafters. Test output will be streamed to your terminal.
 
+# Project structure
+* `src/`: The source code
+  * `main.rs`: The binary crate
+  * `lib.rs` The library crate
+* `tests/`: Integration tests
+  * `mod.rs`: Module exporters
+  * `*.rs`: Test files
+
+# Set up project
+* Install [rust](https://www.rust-lang.org/tools/install), which comes with [Cargo](https://doc.rust-lang.org/cargo/)
+* Start TCP server at port 6379: `./spawn_redis_server.sh`
+* Connect to TCP server: `nc localhost 6379`
+* Run redis commands: PING, ECHO, GET, SET(support PX)
+* Run tests: `cargo test`
+  * Run only unit tests: `cargo test --lib`
+  * Run only integration tests: `cargo test --test '*'`
+
+**Sample commands**
+
+PING
+```
+*1\r\n$4\r\n
+ping\r\n
+```
+Output:
+```
++PONG
+```
+
+ECHO
+```
+*2\r\n$4\r\n
+echo\r\n$11\r\n
+hello world\r\n
+```
+Output:
+```
+$11
+hello world
+```
+
+SET
+```
+*3\r\n$3\r\nSET\r\n
+$5\r\nhello\r\n
+$5\r\nworld\r\n
+```
+
+Output:
+```
+$2
+OK
+```
+
+SET with 5 seconds expiry
+```
+*5\r\n$3\r\nSET\r\n
+$5\r\nhello\r\n
+$5\r\nworld\r\n
+$2\r\npx\r\n
+$4\r\n5000\r\n
+```
+Output:
+```
+$2
+OK
+```
+
+GET
+```
+*2\r\n$3\r\nget\r\n
+$5\r\nhello\r\n
+```
+
+Output:
+```
+$5
+world
+```
+
+GET key that is not found
+```
+*2\r\n$3\r\nget\r\n
+$6\r\nrandom\r\n
+```
+
+Output:
+```
+$-1
+```
+
+
 # TODO
-* Handle concurrent write requests: Currently only one of the concurrency write requests will succeed
-* Extract the handling of read and write lock into a function
+* Better separation of concern: Move parse and respond out of ClientInput
+* Improve the parsing of user input. Currently, the program ignores the bytes part(i.e. $4 in $4\r\nping\r\n) in the bulk string request
+* Concurrency: Should probably remove the write-read lock as it is up to the client to manage concurrency
+* DRY: Extract the handling of read and write lock into a function

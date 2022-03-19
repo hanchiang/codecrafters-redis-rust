@@ -2,7 +2,7 @@ use serial_test::serial;
 
 use std::borrow::Borrow;
 use std::io::{ErrorKind};
-use std::ops::{Deref, DerefMut};
+
 use std::thread;
 
 use redis_starter_rust::request_response::{client_input::ClientInput, command::Command};
@@ -198,7 +198,7 @@ fn respond_return_data_if_command_is_get_and_key_is_set_without_expiry() {
         parsed.set_num_args_in_input(Some(2));
 
         {
-            let mut store_lock = RedisStore::get_store();
+            let store_lock = RedisStore::get_store();
             let mut store_guard = store_lock.write().unwrap();
             if let Some(store) = store_guard.as_mut() {
                 store.set(key, value, &None);
@@ -231,7 +231,7 @@ fn respond_return_data_if_command_is_get_and_key_is_set_with_expiry() {
         parsed.set_num_args_in_input(Some(2));
 
         {
-            let mut store_lock = RedisStore::get_store();
+            let store_lock = RedisStore::get_store();
             let mut store_guard = store_lock.write().unwrap();
             if let Some(store) = store_guard.as_mut() {
                 let set_args = Some(SetOptionalArgs {
@@ -254,7 +254,7 @@ fn respond_return_data_if_command_is_get_and_key_is_set_with_expiry() {
         // Key should be expired
         let mut parsed = ParsedCommand::new();
         let key = "hello";
-        let value = "world";
+        let _value = "world";
         let duration = 50;
 
         parsed.set_command(Some(Command::GET));

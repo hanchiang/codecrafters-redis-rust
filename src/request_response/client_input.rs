@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 use std::io::{Error, ErrorKind, Read, Write};
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref};
 
 use crate::request_response::{command::Command, parsed_command::ParsedCommand, response_helper};
 use crate::store::redis::{RedisStore, Store};
@@ -85,8 +85,6 @@ impl HandleClientInput for ClientInput {
                 is_expired,
             } = key_expired_for_get.unwrap();
 
-            println!("key: {}, value: {}, is_expired: {}", key, value.as_ref().unwrap_or(&String::from("")), is_expired);
-
             if is_expired {
                 self.delete_expired_keys(vec![&key]);
                 response_helper::send_bulk_string_response(stream, None);
@@ -139,7 +137,6 @@ impl ClientInput {
     }
 
     fn append_input(&mut self, input: &str) {
-        println!("received input: {}", input.replace("\0", "").as_str());
         self.input.push_str(input.replace("\0", "").as_str());
     }
 
@@ -149,11 +146,8 @@ impl ClientInput {
         let input = self.input.as_str();
 
         if input.len() == 0 {
-            println!("No input.");
             return None;
         }
-
-        println!("input: {}", input);
 
         if &input[0..1] != "*" {
             println!("Unrecognised command!");
@@ -161,7 +155,6 @@ impl ClientInput {
         } else {
             let num_args_ref: &u8 = &input[1..2].parse().unwrap();
             let num_args: u8 = num_args_ref.clone();
-            println!("num args: {}", num_args);
 
             let mut string_split = self.parse_string_into_vector(&self.input);
 
@@ -190,21 +183,12 @@ impl ClientInput {
             .filter(|s| !s.is_empty())
             .collect();
 
-        for s in string_split.iter() {
-            println!("string_split before: {}, len: {}", s, s.len());
-        }
-
-        // Discard the number of bytes for each bulk string, i.e. ${number of bytes}
         string_split = string_split
             .iter()
-            .skip(2)
-            .step_by(2)
+            .skip(2)       // Discard number of elements(e.g.. *2) and number of bytes in command(e.g. $4)
+            .step_by(2) // Discard the number of bytes for each bulk string after command, i.e. ${number of bytes}
             .map(String::from)
             .collect();
-
-        for s in string_split.iter() {
-            println!("string_split after: {}, len: {}", s, s.len());
-        }
 
         string_split
     }

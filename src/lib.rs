@@ -10,7 +10,6 @@ use request_response::client_input::ClientInput;
 // Receives TcpStream so that we can use its methods
 pub fn handle_connection(mut stream: TcpStream) {
     let mut client_input = ClientInput::new();
-    println!("stream: {:?}", stream);
     loop {
         let result = handle_connection_helper(&mut stream, &mut client_input);
         if result.is_err() {

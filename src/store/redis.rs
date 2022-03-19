@@ -1,8 +1,8 @@
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::{BorrowMut};
 use std::collections::HashMap;
-use std::ops::{Add, Deref, DerefMut};
+use std::ops::{DerefMut};
 use std::sync::{Once, RwLock};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{Duration, Utc};
 
 use lazy_static::lazy_static;
 use serial_test::serial;
@@ -146,7 +146,7 @@ impl Store for RedisStore {
 }
 
 impl RedisStore {
-    // Rename this to initialise, move to Store trait, and use #[cfg(not(test))] macro
+    // TODO: Rename this to initialise, move to Store trait, and use #[cfg(not(test))] macro
     pub fn initialise_test() {
         match STORE.try_write() {
             Ok(mut store_lock) => {
@@ -176,7 +176,7 @@ impl RedisStore {
         }
     }
 
-    // Rename this to reset, move to Store trait, and use #[cfg(not(test))] macro
+    // TODO: Rename this to reset, move to Store trait, and use #[cfg(not(test))] macro
     pub fn reset() {
         match STORE.try_write() {
             Ok(mut store_lock) => {
@@ -210,6 +210,7 @@ impl RedisStore {
 mod tests {
     use super::*;
     use std::borrow::BorrowMut;
+    use std::ops::Deref;
     use std::thread;
 
     fn with_reset_redis<F>(test: F)
