@@ -44,6 +44,7 @@ pub trait Store {
 }
 
 impl Store for RedisStore {
+    #[cfg(not(feature="integration_test"))]
     fn initialise() {
         INIT.call_once(|| unsafe {
             *STORE.write().unwrap() = Some(RedisStore {
@@ -51,16 +52,47 @@ impl Store for RedisStore {
                 date_time: HashMap::new(),
             });
             INIT_COUNT += 1;
-            println!("Store is initialised");
+            println!("Store is initialised.");
         });
     }
 
-    fn get_store() -> &'static RwLock<Option<RedisStore>> {
-        unsafe {
-            if INIT_COUNT == 0 {
-                panic!("Cannot get store because it is not initialised");
+    // Using #[cfg(test)] has no effect when running integration tests
+    // because they are located in 'test/'
+    #[cfg(feature="integration_test")]
+    fn initialise() {
+        match STORE.write() {
+            Ok(mut store_lock) => {
+                let mut wrapped_store = store_lock.deref_mut();
+                if wrapped_store.is_some() {
+                    println!("Store is already initialised");
+                    return;
+                }
+
+                *wrapped_store.deref_mut() = Some(RedisStore {
+                    data: HashMap::new(),
+                    date_time: HashMap::new(),
+                });
+                unsafe {
+                    INIT_COUNT += 1;
+                }
+                println!("Store is initialised in test mode.");
             }
-            &STORE
+            Err(e) => {
+                println!(
+                    "Error when getting write lock for store during initialisation: {:?}",
+                    e
+                );
+                return;
+            }
+        }
+    }
+
+    fn get_store() -> &'static RwLock<Option<RedisStore>> {
+        let store_lock = STORE.read().unwrap();
+
+        match store_lock.as_ref() {
+            Some(Store) => &STORE,
+            None => panic!("Cannot get store because it is not initialised")
         }
     }
 
@@ -80,7 +112,6 @@ impl Store for RedisStore {
     }
 
     fn set(&mut self, key: &str, value: &str, opt: &Option<SetOptionalArgs>) -> Option<DataType> {
-        println!("SET: key {}, value: {}, opt: {:?}", key, value, opt);
         let key_string = String::from(key);
         let key_string_clone = key_string.clone();
 
@@ -127,7 +158,6 @@ impl Store for RedisStore {
             return false;
         }
 
-        println!("date_time_meta.expire_at: {:?}, now: {:?}", date_time_meta.expire_at.unwrap(), now);
         date_time_meta.expire_at.unwrap() < now
     }
 
@@ -138,7 +168,7 @@ impl Store for RedisStore {
             if self.data.remove(key).is_some() {
                 self.date_time.remove(key);
                 delete_count += 1;
-                println!("Remove key {}", key);
+                println!("Key {} is removed.", key);
             }
         }
         delete_count
@@ -146,39 +176,8 @@ impl Store for RedisStore {
 }
 
 impl RedisStore {
-    // TODO: Rename this to initialise, move to Store trait, and use #[cfg(not(test))] macro
-    pub fn initialise_test() {
-        match STORE.try_write() {
-            Ok(mut store_lock) => {
-                let mut wrapped_store = store_lock.deref_mut();
-                if wrapped_store.is_some() {
-                    println!("Store is already initialised");
-                    return;
-                }
-
-                *wrapped_store.deref_mut() = Some(RedisStore {
-                    data: HashMap::new(),
-                    date_time: HashMap::new(),
-                });
-                println!("Store is initialised.");
-
-                unsafe {
-                    INIT_COUNT += 1;
-                }
-            }
-            Err(e) => {
-                println!(
-                    "Error when getting write lock for store during initialisation: {:?}",
-                    e
-                );
-                return;
-            }
-        }
-    }
-
-    // TODO: Rename this to reset, move to Store trait, and use #[cfg(not(test))] macro
     pub fn reset() {
-        match STORE.try_write() {
+        match STORE.write() {
             Ok(mut store_lock) => {
                 let store_lock = store_lock.borrow_mut();
                 if store_lock.is_none() {
@@ -235,11 +234,11 @@ mod tests {
     fn should_initialise_store_only_once() {
         with_reset_redis(|| {
             let thread1 = thread::spawn(|| {
-                RedisStore::initialise_test();
+                RedisStore::initialise();
             });
 
             let thread2 = thread::spawn(|| {
-                RedisStore::initialise_test();
+                RedisStore::initialise();
             });
 
             thread1.join();
@@ -263,7 +262,7 @@ mod tests {
     #[serial]
     fn can_reset_store_correctly() {
         with_reset_redis(|| {
-            RedisStore::initialise_test();
+            RedisStore::initialise();
 
             {
                 let mut store_lock = RedisStore::get_store().write();
@@ -288,7 +287,7 @@ mod tests {
             }
 
             RedisStore::reset();
-            RedisStore::initialise_test();
+            RedisStore::initialise();
 
             let store_lock = RedisStore::get_store();
             let store_guard = store_lock.read().unwrap();
@@ -303,7 +302,7 @@ mod tests {
     #[serial]
     fn get_returns_none_if_key_is_not_found() {
         with_reset_redis(|| {
-            RedisStore::initialise_test();
+            RedisStore::initialise();
             let store_lock = RedisStore::get_store();
             let store_lock_guard = store_lock.read().unwrap();
 
@@ -320,7 +319,7 @@ mod tests {
         // created_at is set, expire_at is not set
         {
             with_reset_redis(|| {
-                RedisStore::initialise_test();
+                RedisStore::initialise();
 
                 let mut store_lock = RedisStore::get_store().write();
                 let mut store_guard = store_lock.unwrap();
@@ -348,7 +347,7 @@ mod tests {
         // created_at and expire_at are not set
         {
             with_reset_redis(|| {
-                RedisStore::initialise_test();
+                RedisStore::initialise();
 
                 let mut store_lock = RedisStore::get_store().write();
                 let mut store_guard = store_lock.unwrap();
@@ -382,7 +381,7 @@ mod tests {
     #[serial]
     fn can_delete_key() {
         with_reset_redis(|| {
-            RedisStore::initialise_test();
+            RedisStore::initialise();
 
             {
                 let mut store_lock = RedisStore::get_store().write();
@@ -412,7 +411,7 @@ mod tests {
     #[serial]
     fn key_expires_correctly() {
         with_reset_redis(|| {
-            RedisStore::initialise_test();
+            RedisStore::initialise();
 
             {
                 let mut store_lock = RedisStore::get_store().write();

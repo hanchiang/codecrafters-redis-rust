@@ -5,7 +5,7 @@ use serial_test::serial;
 
 use redis_starter_rust::handle_connection_helper;
 use redis_starter_rust::request_response::client_input::ClientInput;
-use redis_starter_rust::store::redis::{RedisStore};
+use redis_starter_rust::store::redis::{RedisStore, Store};
 
 mod mock;
 
@@ -85,7 +85,7 @@ fn handle_connection_should_process_echo_correctly_and_reset_input() {
 #[serial]
 fn handle_connection_return_nil_for_get_command_if_there_is_no_data_and_reset_input() {
     with_reset_redis(|| {
-        RedisStore::initialise_test();
+        RedisStore::initialise();
 
         let mut mock_tcp_stream = MockTcpStream::new();
         let buffer = generate_get_buffer();
@@ -107,7 +107,7 @@ fn handle_connection_return_nil_for_get_command_if_there_is_no_data_and_reset_in
 #[serial]
 fn handle_connection_return_ok_for_set_command_and_can_get_result_and_reset_input() {
     with_reset_redis(|| {
-        RedisStore::initialise_test();
+        RedisStore::initialise();
         {
             let mut mock_tcp_stream = MockTcpStream::new();
             let buffer = generate_set_buffer();
@@ -142,7 +142,7 @@ fn handle_connection_return_ok_for_set_command_and_can_get_result_and_reset_inpu
 #[serial]
 fn handle_connection_return_ok_for_set_command_with_expiry_and_can_get_result_before_expiry_and_reset_input() {
     with_reset_redis(|| {
-        RedisStore::initialise_test();
+        RedisStore::initialise();
         {
             let mut mock_tcp_stream = MockTcpStream::new();
             let buffer = generate_set_buffer_with_expiry("px", 100);

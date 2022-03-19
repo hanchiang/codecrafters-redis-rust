@@ -166,7 +166,7 @@ fn respond_return_input_if_command_is_echo() {
 #[serial]
 fn respond_return_none_if_command_is_get_and_key_is_not_set() {
     with_reset_redis(|| {
-        RedisStore::initialise_test();
+        RedisStore::initialise();
 
         let mut parsed = ParsedCommand::new();
         parsed.set_command(Some(Command::GET));
@@ -188,7 +188,7 @@ fn respond_return_none_if_command_is_get_and_key_is_not_set() {
 #[serial]
 fn respond_return_data_if_command_is_get_and_key_is_set_without_expiry() {
     with_reset_redis(|| {
-        RedisStore::initialise_test();
+        RedisStore::initialise();
 
         let mut parsed = ParsedCommand::new();
         let key = "hello";
@@ -220,7 +220,7 @@ fn respond_return_data_if_command_is_get_and_key_is_set_without_expiry() {
 #[serial]
 fn respond_return_data_if_command_is_get_and_key_is_set_with_expiry() {
     with_reset_redis(|| {
-        RedisStore::initialise_test();
+        RedisStore::initialise();
 
         let mut parsed = ParsedCommand::new();
         let key = "hello";

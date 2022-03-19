@@ -45,9 +45,9 @@ Note: This section is for stages 2 and beyond.
 * Start TCP server at port 6379: `./spawn_redis_server.sh`
 * Connect to TCP server: `nc localhost 6379`
 * Run redis commands: PING, ECHO, GET, SET(support PX)
-* Run tests: `cargo test`
+* Run tests: `cargo test --features integration_test`
   * Run only unit tests: `cargo test --lib`
-  * Run only integration tests: `cargo test --test '*'`
+  * Run only integration tests: `cargo test --features integration_test --test '*'`
 
 **Sample commands**
 
