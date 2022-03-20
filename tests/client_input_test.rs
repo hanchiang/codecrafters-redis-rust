@@ -198,11 +198,8 @@ fn respond_return_data_if_command_is_get_and_key_is_set_without_expiry() {
         parsed.set_num_args_in_input(Some(2));
 
         {
-            let store_lock = RedisStore::get_store();
-            let mut store_guard = store_lock.write().unwrap();
-            if let Some(store) = store_guard.as_mut() {
-                store.set(key, value, &None);
-            }
+            let store = RedisStore::get_store();
+            store.set(key, value, &None);
         }
 
         let mut mock_tcp_stream = MockTcpStream::new();
@@ -231,14 +228,11 @@ fn respond_return_data_if_command_is_get_and_key_is_set_with_expiry() {
         parsed.set_num_args_in_input(Some(2));
 
         {
-            let store_lock = RedisStore::get_store();
-            let mut store_guard = store_lock.write().unwrap();
-            if let Some(store) = store_guard.as_mut() {
-                let set_args = Some(SetOptionalArgs {
-                    expire_in_ms: Some(duration)
-                });
-                store.set(key, value, &set_args);
-            }
+            let store = RedisStore::get_store();
+            let set_args = Some(SetOptionalArgs {
+                expire_in_ms: Some(duration)
+            });
+            store.set(key, value, &set_args);
         }
 
         // Key should not be expired

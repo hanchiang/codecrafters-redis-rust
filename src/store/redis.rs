@@ -1,21 +1,13 @@
-use std::borrow::{BorrowMut};
-use std::collections::HashMap;
-use std::ops::{DerefMut};
-use std::sync::{Once, RwLock};
 use chrono::{Duration, Utc};
+use std::collections::HashMap;
+use std::sync::Once;
 
-use lazy_static::lazy_static;
 use serial_test::serial;
 
 use crate::store::redis_data_structure::{DataType, DateTimeMeta, DateTimeMetaBuilder};
 use crate::store::redis_operation::SetOptionalArgs;
 
-// Is this the best way to store data? Is mutex better?
-// https://stackoverflow.com/questions/50704279/when-or-why-should-i-use-a-mutex-over-an-rwlock
-lazy_static! {
-    static ref STORE: RwLock<Option<RedisStore>> = RwLock::new(None);
-}
-
+static mut STORE: Option<RedisStore> = None;
 static INIT: Once = Once::new();
 static mut INIT_COUNT: u8 = 0;
 
@@ -28,7 +20,7 @@ pub struct RedisStore {
 pub trait Store {
     fn initialise();
 
-    fn get_store() -> &'static RwLock<Option<RedisStore>>;
+    fn get_store() -> &'static mut RedisStore;
 
     // https://redis.io/commands/get
     fn get(&self, key: &str) -> Option<&str>;
@@ -44,10 +36,10 @@ pub trait Store {
 }
 
 impl Store for RedisStore {
-    #[cfg(not(feature="integration_test"))]
+    #[cfg(not(feature = "integration_test"))]
     fn initialise() {
         INIT.call_once(|| unsafe {
-            *STORE.write().unwrap() = Some(RedisStore {
+            STORE = Some(RedisStore {
                 data: HashMap::new(),
                 date_time: HashMap::new(),
             });
@@ -58,41 +50,25 @@ impl Store for RedisStore {
 
     // Using #[cfg(test)] has no effect when running integration tests
     // because they are located in 'test/'
-    #[cfg(feature="integration_test")]
+    #[cfg(feature = "integration_test")]
     fn initialise() {
-        match STORE.write() {
-            Ok(mut store_lock) => {
-                let mut wrapped_store = store_lock.deref_mut();
-                if wrapped_store.is_some() {
-                    println!("Store is already initialised");
-                    return;
-                }
-
-                *wrapped_store.deref_mut() = Some(RedisStore {
-                    data: HashMap::new(),
-                    date_time: HashMap::new(),
-                });
-                unsafe {
-                    INIT_COUNT += 1;
-                }
-                println!("Store is initialised in test mode.");
-            }
-            Err(e) => {
-                println!(
-                    "Error when getting write lock for store during initialisation: {:?}",
-                    e
-                );
-                return;
-            }
+        unsafe {
+            STORE = Some(RedisStore {
+                data: HashMap::new(),
+                date_time: HashMap::new(),
+            });
+            INIT_COUNT += 1;
         }
+        println!("Store is initialised in test mode.");
     }
 
-    fn get_store() -> &'static RwLock<Option<RedisStore>> {
-        let store_lock = STORE.read().unwrap();
+    fn get_store() -> &'static mut RedisStore {
+        unsafe {
+            if STORE.is_none() {
+                panic!("Store is not initialised.");
+            }
 
-        match store_lock.as_ref() {
-            Some(Store) => &STORE,
-            None => panic!("Cannot get store because it is not initialised")
+            STORE.as_mut().unwrap()
         }
     }
 
@@ -115,20 +91,23 @@ impl Store for RedisStore {
         let key_string = String::from(key);
         let key_string_clone = key_string.clone();
 
-        let insert_data_result = self.data
+        let insert_data_result = self
+            .data
             .insert(key_string, DataType::String(String::from(value)));
 
         let now = Utc::now();
         let mut date_time_meta_builder = DateTimeMetaBuilder::new(now);
 
         if opt.is_none() {
-            self.date_time.insert(key_string_clone, date_time_meta_builder.build());
+            self.date_time
+                .insert(key_string_clone, date_time_meta_builder.build());
             return insert_data_result;
         }
 
         let set_args = opt.as_ref().unwrap();
         if set_args.expire_in_ms.is_none() {
-            self.date_time.insert(key_string_clone, date_time_meta_builder.build());
+            self.date_time
+                .insert(key_string_clone, date_time_meta_builder.build());
             return insert_data_result;
         }
 
@@ -140,7 +119,8 @@ impl Store for RedisStore {
             date_time_meta_builder = date_time_meta_builder.expire_at(expire_at);
         }
 
-        self.date_time.insert(key_string_clone, date_time_meta_builder.build());
+        self.date_time
+            .insert(key_string_clone, date_time_meta_builder.build());
         insert_data_result
     }
 
@@ -149,7 +129,10 @@ impl Store for RedisStore {
         let date_time_meta_option = self.date_time.get(key);
 
         if date_time_meta_option.is_none() {
-            println!("key {} is not found when checking whether it has expired", key);
+            println!(
+                "key {} is not found when checking whether it has expired",
+                key
+            );
             return false;
         }
 
@@ -177,30 +160,19 @@ impl Store for RedisStore {
 
 impl RedisStore {
     pub fn reset() {
-        match STORE.write() {
-            Ok(mut store_lock) => {
-                let store_lock = store_lock.borrow_mut();
-                if store_lock.is_none() {
-                    println!("Store is already None.");
-                    return;
-                }
-
-                let wrapped_store = store_lock.deref_mut();
-                if let Some(store) = wrapped_store {
-                    store.data = HashMap::new();
-                    store.date_time = HashMap::new();
-                }
-                *wrapped_store = None;
-
-                unsafe {
-                    INIT_COUNT = 0;
-                }
-                println!("Store is reset.");
-            }
-            Err(e) => {
-                println!("Unable to get write lock for store: {:?}", e);
+        unsafe {
+            if STORE.is_none() {
+                println!("Store is already None.");
                 return;
             }
+
+            let store = STORE.as_mut().unwrap();
+            store.data = HashMap::new();
+            store.date_time = HashMap::new();
+            STORE = None;
+            INIT_COUNT = 0;
+
+            println!("Store is reset.");
         }
     }
 }
@@ -208,7 +180,6 @@ impl RedisStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::borrow::BorrowMut;
     use std::ops::Deref;
     use std::thread;
 
@@ -222,39 +193,10 @@ mod tests {
 
     #[test]
     #[serial]
-    #[should_panic(expected = "Cannot get store because it is not initialised")]
+    #[should_panic(expected = "Store is not initialised.")]
     fn panic_if_get_store_before_store_is_initialised() {
         with_reset_redis(|| {
             RedisStore::get_store();
-        });
-    }
-
-    #[test]
-    #[serial]
-    fn should_initialise_store_only_once() {
-        with_reset_redis(|| {
-            let thread1 = thread::spawn(|| {
-                RedisStore::initialise();
-            });
-
-            let thread2 = thread::spawn(|| {
-                RedisStore::initialise();
-            });
-
-            thread1.join();
-            thread2.join();
-
-            let store_lock = RedisStore::get_store().read().unwrap();
-            if let Some(store) = store_lock.deref() {
-                let keys: Vec<String> = store.data.keys().cloned().collect();
-                assert_eq!(keys.len(), 0);
-            } else {
-                panic!("Store is empty")
-            }
-
-            unsafe {
-                assert_eq!(INIT_COUNT, 1);
-            }
         });
     }
 
@@ -265,36 +207,26 @@ mod tests {
             RedisStore::initialise();
 
             {
-                let mut store_lock = RedisStore::get_store().write();
-                let mut store_guard = store_lock.unwrap();
-                let wrapped_store = store_guard.as_mut();
-                if wrapped_store.is_some() {
-                    let mut store = wrapped_store.unwrap();
-                    let key = "key";
-                    let value = "value";
+                let store = &mut RedisStore::get_store();
+                let key = "key";
+                let value = "value";
 
-                    let set_result = store.set(key, value, &None);
-                }
+                let set_result = store.set(key, value, &None);
             }
 
             {
-                let store_lock = RedisStore::get_store();
-                let store_guard = store_lock.read().unwrap();
-                if let Some(store) = store_guard.deref() {
-                    let result = store.get("key");
-                    assert_eq!(result.unwrap(), "value");
-                }
+                let store = RedisStore::get_store();
+                let key = "key";
+                let result = store.get("key");
+                assert_eq!(result.unwrap(), "value");
             }
 
             RedisStore::reset();
             RedisStore::initialise();
 
-            let store_lock = RedisStore::get_store();
-            let store_guard = store_lock.read().unwrap();
-            if let Some(store) = store_guard.deref() {
-                let keys: Vec<String> = store.data.keys().cloned().collect();
-                assert_eq!(keys.len(), 0);
-            }
+            let store = RedisStore::get_store();
+            let keys: Vec<String> = store.data.keys().cloned().collect();
+            assert_eq!(keys.len(), 0);
         })
     }
 
@@ -303,13 +235,10 @@ mod tests {
     fn get_returns_none_if_key_is_not_found() {
         with_reset_redis(|| {
             RedisStore::initialise();
-            let store_lock = RedisStore::get_store();
-            let store_lock_guard = store_lock.read().unwrap();
 
-            if let Some(store) = store_lock_guard.deref() {
-                let result = store.get("random");
-                assert!(result.is_none());
-            };
+            let store = RedisStore::get_store();
+            let result = store.get("random");
+            assert!(result.is_none());
         })
     }
 
@@ -321,58 +250,49 @@ mod tests {
             with_reset_redis(|| {
                 RedisStore::initialise();
 
-                let mut store_lock = RedisStore::get_store().write();
-                let mut store_guard = store_lock.unwrap();
-                let wrapped_store = store_guard.as_mut();
-                if wrapped_store.is_some() {
-                    let mut store = wrapped_store.unwrap();
-                    let key = "key";
-                    let value = "value";
+                let store = &mut RedisStore::get_store();
+                let key = "key";
+                let value = "value";
 
-                    store.set(key, value, &None);
+                store.set(key, value, &None);
 
-                    let result = store.get(key);
-                    assert!(result.is_some());
-                    assert_eq!(result.unwrap(), value);
+                let result = store.get(key);
+                assert!(result.is_some());
+                assert_eq!(result.unwrap(), value);
 
-                    let date_time_meta = store.date_time.get(key);
-                    assert!(date_time_meta.is_some());
-                    let date_time = date_time_meta.unwrap();
-                    assert!(date_time.created_at < Utc::now());
-                    assert!(date_time.expire_at.is_none());
-                }
+                let date_time_meta = store.date_time.get(key);
+                assert!(date_time_meta.is_some());
+                let date_time = date_time_meta.unwrap();
+                assert!(date_time.created_at < Utc::now());
+                assert!(date_time.expire_at.is_none());
             })
         }
 
-        // created_at and expire_at are not set
+        // created_at and expire_at are set
         {
             with_reset_redis(|| {
                 RedisStore::initialise();
 
-                let mut store_lock = RedisStore::get_store().write();
-                let mut store_guard = store_lock.unwrap();
-                let wrapped_store = store_guard.as_mut();
-                if wrapped_store.is_some() {
-                    let mut store = wrapped_store.unwrap();
-                    let key = "key";
-                    let value = "value";
+                let store = &mut RedisStore::get_store();
+                let key = "key";
+                let value = "value";
 
-                    let expire_in = 50;
-                    let set_args = Some(SetOptionalArgs {
-                        expire_in_ms: Some(expire_in)
-                    });
-                    store.set(key, value, &set_args);
+                let expire_in = 50;
+                let set_args = Some(SetOptionalArgs {
+                    expire_in_ms: Some(expire_in),
+                });
+                store.set(key, value, &set_args);
 
-                    let result = store.get(key);
-                    assert!(result.is_some());
-                    assert_eq!(result.unwrap(), value);
+                let result = store.get(key);
+                assert!(result.is_some());
+                assert_eq!(result.unwrap(), value);
 
-                    let date_time_meta = store.date_time.get(key);
-                    assert!(date_time_meta.is_some());
-                    let date_time = date_time_meta.unwrap();
-                    assert!(date_time.created_at < Utc::now());
-                    assert!(date_time.expire_at.unwrap() > Utc::now());
-                }
+                let date_time_meta = store.date_time.get(key);
+                assert!(date_time_meta.is_some());
+
+                let date_time = date_time_meta.unwrap();
+                assert!(date_time.created_at < Utc::now());
+                assert!(date_time.expire_at.unwrap() > Utc::now());
             })
         }
     }
@@ -384,25 +304,20 @@ mod tests {
             RedisStore::initialise();
 
             {
-                let mut store_lock = RedisStore::get_store().write();
-                let mut store_guard = store_lock.unwrap();
-                let wrapped_store = store_guard.as_mut();
-                if wrapped_store.is_some() {
-                    let mut store = wrapped_store.unwrap();
-                    let key = "key";
-                    let value = "value";
+                let store = &mut RedisStore::get_store();
+                let key = "key";
+                let value = "value";
 
-                    store.set(key, value, &None);
+                store.set(key, value, &None);
 
-                    let result = store.get(key);
-                    assert!(result.is_some());
-                    assert_eq!(result.unwrap(), value);
+                let result = store.get(key);
+                assert!(result.is_some());
+                assert_eq!(result.unwrap(), value);
 
-                    store.delete(vec![key]);
+                store.delete(vec![key]);
 
-                    let result = store.get(key);
-                    assert!(result.is_none());
-                }
+                let result = store.get(key);
+                assert!(result.is_none());
             }
         })
     }
@@ -414,29 +329,24 @@ mod tests {
             RedisStore::initialise();
 
             {
-                let mut store_lock = RedisStore::get_store().write();
-                let mut store_guard = store_lock.unwrap();
-                let wrapped_store = store_guard.as_mut();
-                if wrapped_store.is_some() {
-                    let mut store = wrapped_store.unwrap();
-                    let key = "key";
-                    let value = "value";
+                let store = &mut RedisStore::get_store();
+                let key = "key";
+                let value = "value";
 
-                    let expire_in = 50;
-                    let set_args = Some(SetOptionalArgs {
-                        expire_in_ms: Some(expire_in)
-                    });
-                    store.set(key, value, &set_args);
+                let expire_in = 50;
+                let set_args = Some(SetOptionalArgs {
+                    expire_in_ms: Some(expire_in),
+                });
+                store.set(key, value, &set_args);
 
-                    let result = store.get(key);
-                    assert!(result.is_some());
-                    assert_eq!(result.unwrap(), value);
+                let result = store.get(key);
+                assert!(result.is_some());
+                assert_eq!(result.unwrap(), value);
 
-                    thread::sleep(std::time::Duration::from_millis(expire_in));
+                thread::sleep(std::time::Duration::from_millis(expire_in));
 
-                    let is_expired = store.is_key_expired(key);
-                    assert!(is_expired);
-                }
+                let is_expired = store.is_key_expired(key);
+                assert!(is_expired);
             }
         })
     }
