@@ -1,6 +1,5 @@
 use std::borrow::Borrow;
 use std::io::{Error, ErrorKind, Read, Write};
-use std::ops::{Deref};
 
 use crate::request_response::{command::Command, parsed_command::ParsedCommand, response_helper};
 use crate::store::redis::{RedisStore, Store};
@@ -95,28 +94,15 @@ impl HandleClientInput for ClientInput {
 
         } else if command_unwrapped == &Command::SET {
             let arguments = args.as_ref().unwrap();
+            let store = &mut RedisStore::get_store();
 
-            let store_lock_result = RedisStore::get_store().try_write();
+            // set <key> <value> [ex seconds | px milliseconds]
+            let key = arguments.get(0).unwrap();
+            let value = arguments.get(1).unwrap();
+            let optional_args = self.determine_set_optional_args(arguments);
 
-            if store_lock_result.is_err() {
-                println!(
-                    "Error when getting write lock for store: {:?}",
-                    store_lock_result.unwrap_err()
-                );
-                return;
-            }
-
-            let mut store_guard = store_lock_result.unwrap();
-            let store_lock = store_guard.as_mut();
-            if let Some(store) = store_lock {
-                // set <key> <value> [ex seconds | px milliseconds]
-                let key = arguments.get(0).unwrap();
-                let value = arguments.get(1).unwrap();
-                let optional_args = self.determine_set_optional_args(arguments);
-
-                store.set(key, value, &optional_args);
-                response_helper::send_bulk_string_response(stream, Some("OK"));
-            }
+            store.set(key, value, &optional_args);
+            response_helper::send_bulk_string_response(stream, Some("OK"));
         }
     }
 
@@ -232,53 +218,24 @@ impl ClientInput {
     }
 
     fn delete_expired_keys(&self, keys: Vec<&str>) {
-        let store_lock_result = RedisStore::get_store().write();
-
-        if store_lock_result.is_err() {
-            println!(
-                "Error when getting write lock for store: {:?}",
-                store_lock_result.unwrap_err()
-            );
-            return;
-        }
-
-        let mut store_guard = store_lock_result.unwrap();
-        let store_lock = store_guard.as_mut();
-        if let Some(store) = store_lock {
-            store.delete(keys);
-        }
+        let store = &mut RedisStore::get_store();
+        store.delete(keys);
     }
 
     fn get_key_and_expiry(
         &self,
         args: &Option<Vec<String>>,
     ) -> Option<KeyValueExpiry> {
-        let store_lock_result = RedisStore::get_store().try_read();
+        let store = RedisStore::get_store();
+        let key = args.as_ref().unwrap().get(0).unwrap();
+        let value = store.get(key.as_str());
 
-        if store_lock_result.is_err() {
-            println!(
-                "Error when getting read lock for store: {:?}",
-                store_lock_result.unwrap_err()
-            );
-            return None;
-        }
-
-        let store_lock = store_lock_result.unwrap();
-
-        match store_lock.deref() {
-            Some(store) => {
-                let key = args.as_ref().unwrap().get(0).unwrap();
-                let value = store.get(key.as_str());
-                let is_expired = store.is_key_expired(key);
-
-                Some(KeyValueExpiry {
-                    key: String::from(key),
-                    value: value.map(String::from),
-                    is_expired,
-                })
-            }
-            None => None,
-        }
+        let is_expired = store.is_key_expired(key);
+        Some(KeyValueExpiry {
+            key: String::from(key),
+            value: value.map(String::from),
+            is_expired,
+        })
     }
 }
 
