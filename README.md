@@ -125,5 +125,6 @@ $-1
 
 
 # TODO
-* Better separation of concern: Move parse and respond out of ClientInput
-* Improve the parsing of user input. Currently, the program only parses an of array of bulk strings, and ignores the bytes part(i.e. $4 in $4\r\nping\r\n) in the bulk string request
+- [ ] Better separation of concern: Move parse and respond out of ClientInput
+- [ ] Improve the parsing of user input. Currently, the program only parses an of array of bulk strings, and ignores the bytes part(i.e. $4 in $4\r\nping\r\n) in the bulk string request
+- [ ] Replace threads with event loop

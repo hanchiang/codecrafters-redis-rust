@@ -3,6 +3,7 @@ use std::net::TcpStream;
 
 pub mod request_response;
 pub mod store;
+pub mod parser;
 
 use crate::request_response::client_input::HandleClientInput;
 use request_response::client_input::ClientInput;
