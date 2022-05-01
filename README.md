@@ -46,8 +46,8 @@ Note: This section is for stages 2 and beyond.
 * Connect to TCP server: `nc localhost 6379`
 * Run redis commands: PING, ECHO, GET, SET(support PX)
 * Run tests: `cargo test --features integration_test`
-  * Run only unit tests: `cargo test --lib`
-  * Run only integration tests: `cargo test --features integration_test --test '*'`
+  * Run only unit tests: `cargo test --features init_redis_test --lib`
+  * Run only integration tests: `cargo test --features init_redis_test --test '*'`
 
 **Sample commands**
 

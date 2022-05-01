@@ -36,7 +36,7 @@ pub trait Store {
 }
 
 impl Store for RedisStore {
-    #[cfg(not(feature = "integration_test"))]
+    #[cfg(not(feature = "init_redis_test"))]
     fn initialise() {
         INIT.call_once(|| unsafe {
             STORE = Some(RedisStore {
@@ -50,7 +50,7 @@ impl Store for RedisStore {
 
     // Using #[cfg(test)] has no effect when running integration tests
     // because they are located in 'test/'
-    #[cfg(feature = "integration_test")]
+    #[cfg(feature = "init_redis_test")]
     fn initialise() {
         unsafe {
             STORE = Some(RedisStore {
