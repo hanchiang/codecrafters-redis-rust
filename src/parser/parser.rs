@@ -97,8 +97,8 @@ impl Parser {
             return Err(parsed.unwrap_err());
         }
 
-        let (numBytes, remaining) = parsed.unwrap();
-        if String::from_utf8_lossy(numBytes) == "-1" {
+        let (num_bytes, remaining) = parsed.unwrap();
+        if String::from_utf8_lossy(num_bytes) == "-1" {
             return Ok((RESPOutput::Null, "".as_bytes()));
         }
 
@@ -110,11 +110,11 @@ impl Parser {
 
         let (result, remaining) = parsed.unwrap();
 
-        let numBytesInt: usize = String::from_utf8_lossy(numBytes).parse().unwrap();
-        if result.len().lt(&numBytesInt) {
+        let num_bytes_int: usize = String::from_utf8_lossy(num_bytes).parse().unwrap();
+        if result.len().lt(&num_bytes_int) {
             return Err(ParseError::IncompleteInput);
         }
-        if result.len().gt(&numBytesInt) {
+        if result.len().gt(&num_bytes_int) {
             return Err(ParseError::InvalidInput);
         }
 
@@ -132,7 +132,7 @@ impl Parser {
         let string = String::from(String::from_utf8_lossy(result));
         let num: i64 = match string.parse() {
             Ok(res) => res,
-            Err(e) => return Err(ParseError::InvalidInput),
+            Err(_) => return Err(ParseError::InvalidInput),
         };
         Ok((RESPOutput::Integer(num), remaining))
     }
@@ -144,21 +144,21 @@ impl Parser {
             return Err(parsed.unwrap_err());
         }
 
-        let (numElements, remaining) = parsed.unwrap();
-        if String::from_utf8_lossy(numElements) == "-1" {
+        let (num_elements, remaining) = parsed.unwrap();
+        if String::from_utf8_lossy(num_elements) == "-1" {
             return Ok((RESPOutput::Null, "".as_bytes()));
         }
 
-        let numElementsInt: u32 = match String::from(String::from_utf8_lossy(numElements)).parse() {
+        let num_elements_int: u32 = match String::from(String::from_utf8_lossy(num_elements)).parse() {
             Ok(res) => res,
-            Err(e) => return Err(ParseError::InvalidInput),
+            Err(_) => return Err(ParseError::InvalidInput),
         };
 
         let mut resp_result: Vec<RESPOutput> = vec![];
         let mut remaining = remaining;
 
         // Recursively parse for each element in the array
-        for i in 0..numElementsInt {
+        for _ in 0..num_elements_int {
             let parsed = Parser::parse_resp(remaining);
             if parsed.is_err() {
                 return Err(parsed.unwrap_err());
