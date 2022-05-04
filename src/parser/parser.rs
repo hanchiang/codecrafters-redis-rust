@@ -1,4 +1,4 @@
-use std::io::ErrorKind;
+use std::io::{ErrorKind};
 
 // https://redis.io/docs/reference/protocol-spec/
 
@@ -56,11 +56,13 @@ pub type ParseCRLFResult<'a> = std::result::Result<(&'a [u8], &'a [u8]), ParseEr
 const CR: u8 = b'\r';
 const LF: u8 = b'\n';
 
+// TODO: Improve error handling with error smessage
+
 pub struct Parser {}
 
 impl Parser {
     pub fn parse_resp(input: &[u8]) -> ParseResult {
-        if input.len() == 0 {
+        if input.len() == 0 || input[0] == 0 {
             return Err(ParseError::IncompleteInput);
         }
         let symbol_temp = String::from_utf8_lossy(&input[0..1]);
@@ -171,7 +173,13 @@ impl Parser {
     }
 
     fn parse_until_crlf(input: &[u8]) -> ParseCRLFResult {
+        if input.len() == 0 {
+            return Ok((&[0], &[0]));
+        }
         for i in 0..input.len() - 1 {
+            if input[i] == 0 {
+                return Ok((&[0], &[0]))
+            }
             if input[i] == CR && input[i + 1] == LF {
                 return Ok((&input[0..i], &input[i + 2..]));
             }
@@ -199,7 +207,7 @@ mod tests {
                 Ok(res) => {
                     assert_eq!(res, expected[index]);
                 }
-                Err(e) => panic!(e),
+                Err(e) => panic!("{:?}", e),
             }
         }
     }
@@ -227,7 +235,7 @@ mod tests {
         let result = Parser::parse_simple_string(input);
         match result {
             Ok(res) => assert_eq!(res, expected),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{:?}", e),
         }
     }
 
@@ -239,7 +247,7 @@ mod tests {
         let result = Parser::parse_error(input);
         match result {
             Ok(res) => assert_eq!(res, expected),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{:?}", e),
         }
     }
 
@@ -264,7 +272,7 @@ mod tests {
             let result = Parser::parse_bulk_string(inp);
             match result {
                 Ok(res) => assert_eq!(res, expected[index]),
-                Err(e) => panic!(e),
+                Err(e) => panic!("{:?}", e),
             }
         }
     }
@@ -291,7 +299,7 @@ mod tests {
         let result = Parser::parse_integer(input);
         match result {
             Ok(res) => assert_eq!(res, expected),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{:?}", e),
         }
     }
 
@@ -354,7 +362,7 @@ mod tests {
             let result = Parser::parse_array(*inp);
             match result {
                 Ok(res) => assert_eq!(res, expected[index]),
-                Err(e) => panic!(e),
+                Err(e) => panic!("{:?}", e),
             }
         }
     }
@@ -416,7 +424,7 @@ mod tests {
         let result = Parser::parse_resp(input);
         match result {
             Ok(res) => assert_eq!(res, expected),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{:?}", e),
         }
     }
 
@@ -428,7 +436,7 @@ mod tests {
         let result = Parser::parse_resp(input);
         match result {
             Ok(res) => assert_eq!(res, expected),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{:?}", e),
         }
     }
 
@@ -453,7 +461,7 @@ mod tests {
             let result = Parser::parse_resp(inp);
             match result {
                 Ok(res) => assert_eq!(res, expected[index]),
-                Err(e) => panic!(e),
+                Err(e) => panic!("{:?}", e),
             }
         }
     }
@@ -480,7 +488,7 @@ mod tests {
         let result = Parser::parse_resp(input);
         match result {
             Ok(res) => assert_eq!(res, expected),
-            Err(e) => panic!(e),
+            Err(e) => panic!("{:?}", e),
         }
     }
 
@@ -543,7 +551,7 @@ mod tests {
             let result = Parser::parse_resp(*inp);
             match result {
                 Ok(res) => assert_eq!(res, expected[index]),
-                Err(e) => panic!(e),
+                Err(e) => panic!("{:?}", e),
             }
         }
     }
