@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
-// TODO: sorted set, bit array, hyperloglog, stream
 #[derive(Debug)]
 pub enum DataType {
     String(String),

@@ -24,7 +24,7 @@ pub fn send_pong_response<T: Write>(stream: &mut T) {
 }
 
 pub fn send_simple_string_response<T: Write>(stream: &mut T, str: &str) {
-    match stream.write(format_string_response(str).as_bytes()) {
+    match stream.write(format_simple_string_response(str).as_bytes()) {
         Ok(t) => {
             println!("Wrote {} bytes to output", t);
         },
@@ -34,6 +34,18 @@ pub fn send_simple_string_response<T: Write>(stream: &mut T, str: &str) {
     }
 }
 
-pub fn format_string_response(res: &str) -> String {
+pub fn send_error_response<T: Write>(stream: &mut T, str: &str) {
+    match stream.write(format_error_response(str).as_bytes()) {
+        Ok(t) => {
+            println!("Wrote {} bytes to output", t);
+        },
+        Err(e) => {
+            println!("unable to write to response: {}", e);
+        }
+    }
+}
+
+pub fn format_simple_string_response(res: &str) -> String {
     format!("+{}\r\n", res)
 }
+pub fn format_error_response(res: &str) -> String { format!("-{}\r\n", res) }

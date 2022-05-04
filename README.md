@@ -45,7 +45,7 @@ Note: This section is for stages 2 and beyond.
 * Start TCP server at port 6379: `./spawn_redis_server.sh`
 * Connect to TCP server: `nc localhost 6379`
 * Run redis commands: PING, ECHO, GET, SET(support PX)
-* Run tests: `cargo test --features integration_test`
+* Run tests: `cargo test --features init_redis_test`
   * Run only unit tests: `cargo test --features init_redis_test --lib`
   * Run only integration tests: `cargo test --features init_redis_test --test '*'`
 
@@ -125,6 +125,7 @@ $-1
 
 
 # TODO
-- [ ] Better separation of concern: Move parse and respond out of ClientInput
+- [ ] Better separation of concern: Move parse, respond out of ClientInput
 - [ ] Improve the parsing of user input. Currently, the program only parses an of array of bulk strings, and ignores the bytes part(i.e. $4 in $4\r\nping\r\n) in the bulk string request
+- [ ] Validate parsed input
 - [ ] Replace threads with event loop
