@@ -39,34 +39,48 @@ Note: This section is for stages 2 and beyond.
 * `tests/`: Integration tests
   * `mod.rs`: Module exporters
   * `*.rs`: Test files
+* `examples/`: Sample commands for client to send to the server
 
 # Set up project
 * Install [rust](https://www.rust-lang.org/tools/install), which comes with [Cargo](https://doc.rust-lang.org/cargo/)
-* Start TCP server at port 6379: `./spawn_redis_server.sh`
+* Start TCP server at port 6379: `./spawn_redis_server.sh` or `cargo run`
 * Connect to TCP server: `nc localhost 6379`
-* Run redis commands: PING, ECHO, GET, SET(support PX)
+* Enter redis commands: PING, ECHO, GET, SET(supports expiry with PX)
+  * Alternatively, use the commands in `examples/`, e.g. `nc localhost 6379 < examples/ping.txt` 
 * Run tests: `cargo test --features init_redis_test`
   * Run only unit tests: `cargo test --features init_redis_test --lib`
   * Run only integration tests: `cargo test --features init_redis_test --test '*'`
 
 **Sample commands**
 
-PING
+PING:
 ```
-*1\r\n$4\r\n
-ping\r\n
+*1
+$4
+ping
+
 ```
+or  
+`nc localhost 6379 < examples/ping.txt`
+
 Output:
 ```
 +PONG
 ```
 
-ECHO
+ECHO:
 ```
-*2\r\n$4\r\n
-echo\r\n$11\r\n
-hello world\r\n
+*2
+$4
+echo
+$11
+hello world
+
 ```
+
+or  
+`nc localhost 6379 < examples/echo.txt`
+
 Output:
 ```
 $11
@@ -75,10 +89,18 @@ hello world
 
 SET
 ```
-*3\r\n$3\r\nSET\r\n
-$5\r\nhello\r\n
-$5\r\nworld\r\n
+*3
+$3
+SET
+$5
+hello
+$5
+world
+
 ```
+
+or  
+`nc localhost 6379 < examples/set.txt`
 
 Output:
 ```
@@ -88,12 +110,24 @@ OK
 
 SET with 5 seconds expiry
 ```
-*5\r\n$3\r\nSET\r\n
-$5\r\nhello\r\n
-$5\r\nworld\r\n
-$2\r\npx\r\n
-$4\r\n5000\r\n
+*5
+$3
+SET
+$5
+hello
+$5
+world
+$2
+px
+$4
+5000
+
 ```
+
+
+or  
+`nc localhost 6379 < examples/set_with_expiry.txt`
+
 Output:
 ```
 $2
@@ -102,9 +136,16 @@ OK
 
 GET
 ```
-*2\r\n$3\r\nget\r\n
-$5\r\nhello\r\n
+*2
+$3
+get
+$5
+hello
+
 ```
+
+or  
+`nc localhost 6379 < examples/get.txt`
 
 Output:
 ```
@@ -112,11 +153,18 @@ $5
 world
 ```
 
-GET key that is not found
+GET a key that is not found
 ```
-*2\r\n$3\r\nget\r\n
-$6\r\nrandom\r\n
+*2
+$3
+get
+$6
+random
+
 ```
+
+or  
+`nc localhost 6379 < examples/get_key_not_found.txt`
 
 Output:
 ```

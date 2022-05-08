@@ -1,0 +1,7 @@
+*3
+$3
+set
+$5
+hello
+$5
+world
