@@ -41,7 +41,7 @@ fn handle_connection_helper_should_return_error_connection_is_closed() {
     assert!(!result.is_ok());
     assert!(mock_tcp_stream.write_buffer.is_empty());
     assert_eq!(client_input.get_input(), "".as_bytes());
-    assert_eq!(result.unwrap_err(), AppError::ConnectionError(String::from("Connection closed")));
+    assert_eq!(result.unwrap_err(), AppError::ConnectionClosed(String::from("Connection closed")));
 }
 
 #[test]

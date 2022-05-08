@@ -14,7 +14,7 @@ use crate::request_response::parsed_command::ParsedCommand;
 
 #[derive(Debug, PartialEq)]
 pub enum AppError {
-    ConnectionError(String),
+    ConnectionClosed(String),
     ParseError(String),
     IncompleteInput(String),
     Error(String),
@@ -47,11 +47,11 @@ pub fn handle_connection(mut stream: TcpStream) {
             println!("Error: {:?}", error);
 
             match error {
-                AppError::ConnectionError(e) | AppError::ParseError(e)
-                | AppError::Error(e) => {
+                AppError::ParseError(e)  | AppError::Error(e) => {
                     client_input.respond_error(&mut stream, e.as_str());
                     break;
                 },
+                AppError::ConnectionClosed(_) => { break; },
                 _ => {}
             }
         }
@@ -68,7 +68,7 @@ pub fn handle_connection_helper<T: Read + Write + Send>(mut stream: T, client_in
             println!("Read {} bytes from input", size);
 
             if size == 0 {
-                return Err(AppError::ConnectionError(String::from("Connection closed")));
+                return Err(AppError::ConnectionClosed(String::from("Connection closed")));
             }
 
             let parsed = client_input.parse_input(&buffer[..size])?;
