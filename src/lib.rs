@@ -72,12 +72,14 @@ pub fn handle_connection_helper<T: Read + Write + Send>(mut stream: T, client_in
             }
 
             let parsed = client_input.parse_input(&buffer[..size])?;
+            // Move these things below into another file
             let parsed_command = resp_output_to_parsed_command(&parsed);
 
             client_input.respond(&mut stream, parsed_command);
             client_input.reset();
             Ok(())
         }
+        // TODO: test
         Err(e) => Err(AppError::Error(e.to_string())),
     }
 }
