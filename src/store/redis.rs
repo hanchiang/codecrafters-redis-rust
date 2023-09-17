@@ -49,7 +49,8 @@ impl Store for RedisStore {
     }
 
     // Using #[cfg(test)] has no effect when running integration tests
-    // because they are located in 'test/'
+    // because they are located in 'test/'. So we use a feature flag
+    // which will be passed as an argument when running tests
     #[cfg(feature = "init_redis_test")]
     fn initialise() {
         unsafe {
